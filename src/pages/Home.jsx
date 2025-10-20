@@ -1,45 +1,39 @@
-import { Link } from "react-router-dom";
-import Button from "../components/Button";
+// src/pages/Home.jsx
+import { useEffect, useState } from 'react'
+import api from '../api/axios'
 
-export default function Home() {
+export default function Home(){
+  const [trips, setTrips] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(()=>{
+    api.get('/trips/mine')
+      .then(({data})=> setTrips(data))
+      .finally(()=> setLoading(false))
+  },[])
+
+  if (loading) return <div className="p-4">Cargando…</div>
+
   return (
-    <div className="flex flex-col justify-between min-h-[80vh] px-6 py-8">
-      {/* Contenido principal */}
-      <div>
-        <h1 className="text-2xl font-bold mb-4 text-gray-900">
-          Esta aplicación web te permite:
-        </h1>
-
-        <ul className="space-y-3">
-          <li className="flex items-start gap-3">
-            <span className="mt-0.5 text-black-600">➤</span>
-            <p className="text-gray-700">
-              Registrar horarios, zonas y destinos.
+    <main className="p-4 max-w-md mx-auto grid gap-3">
+      <h1 className="text-xl font-bold">Mis viajes planificados</h1>
+      {trips.length === 0 && <p className="text-sm text-gray-500">Aún no tienes viajes.</p>}
+      <ul className="grid gap-3">
+        {trips.map(t => (
+          <li key={t._id} className="rounded border p-3">
+            <p className="font-medium">{t.origin?.address || 'Origen'} → {t.destination?.address || 'Destino'}</p>
+            <p className="text-sm text-gray-600">
+              Llega: {new Date(t.arrivalTime).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
+              {' · '}Zona: {t.zone} {' · '}Estado: {t.status}
             </p>
+            {t.groupId && (
+              <div className="mt-2 text-xs rounded bg-emerald-50 border border-emerald-200 p-2">
+                ✅ Match asignado. Vehículo: (simulado) · Pasajeros: n
+              </div>
+            )}
           </li>
-
-          <li className="flex items-start gap-3">
-            <span className="mt-0.5 text-black-600">➤</span>
-            <p className="text-gray-700">
-              Coordinar automáticamente trayectos compartidos.
-            </p>
-          </li>
-
-          <li className="flex items-start gap-3">
-            <span className="mt-0.5 text-black-600">➤</span>
-            <p className="text-gray-700">
-              Visualizar opciones de transporte disponibles.
-            </p>
-          </li>
-        </ul>
-      </div>
-
-      {/* Botón inferior */}
-      <div className="mt-8">
-        <Link to="/request">
-          <Button>Solicitar viaje</Button>
-        </Link>
-      </div>
-    </div>
-  );
+        ))}
+      </ul>
+    </main>
+  )
 }

@@ -4,7 +4,7 @@ import { useAuth } from "../features/auth/AuthContext";
 const baseItems = [
   { to: "/", label: "Inicio" },
   { to: "/request", label: "Solicitar viaje" },
-  { to: "/estimates", label: "Estimaciones" },
+  { to: "/deals", label: "Viaje rápido" },
 ];
 
 export default function Header() {

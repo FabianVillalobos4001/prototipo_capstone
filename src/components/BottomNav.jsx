@@ -4,7 +4,7 @@ import { useAuth } from "../features/auth/AuthContext";
 const tabsBase = [
   { to: "/", label: "Inicio", icon: HomeIcon },
   { to: "/request", label: "Solicitar", icon: RequestIcon },
-  { to: "/estimates", label: "Estimaciones", icon: EstimateIcon },
+  { to: "/deals", label: "Viaje rápido", icon: EstimateIcon },
 ];
 
 export default function BottomNav() {

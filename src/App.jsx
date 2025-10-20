@@ -6,7 +6,7 @@ import BottomNav from './components/BottomNav'
 import Home from './pages/Home'
 import Login from './pages/Login'
 import RequestTrip from './pages/RequestTrip'
-import Estimates from './pages/Estimates'
+import Deals from './pages/Deals'
 import Profile from './pages/Profile'
 import 'leaflet/dist/leaflet.css'
 
@@ -23,7 +23,7 @@ function AppShell() {
 
           <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
           <Route path="/request" element={<ProtectedRoute><RequestTrip /></ProtectedRoute>} />
-          <Route path="/estimates" element={<ProtectedRoute><Estimates /></ProtectedRoute>} />
+          <Route path="/deals" element={<ProtectedRoute><Deals /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
 
           <Route path="*" element={<Login />} />
