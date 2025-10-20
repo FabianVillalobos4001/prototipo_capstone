@@ -1,0 +1,14 @@
+{
+  "watch": ["index.js", "routes", "controllers"],
+  "ext": "js,mjs,cjs,json",
+  "ignore": [
+    "node_modules",
+    ".git",
+    ".env",
+    ".env.*",
+    "npm-debug.log",
+    "yarn.lock",
+    "package-lock.json"
+  ],
+  "exec": "node index.js"
+}
