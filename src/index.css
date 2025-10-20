@@ -12,10 +12,14 @@
 /* Quita estilos del template de Vite que centraban todo el body */
 html, body, #root {
   height: 100%;
+  overflow: hidden; /* 👈 evita que el body haga scroll */
 }
 
-/* No definas display:flex en body ni márgenes globales raros.
-   El resto del estilo lo haremos con clases de Tailwind en los componentes. */
+/* El #root contendrá el header, main y bottomnav */
+#root {
+  display: flex;
+  flex-direction: column;
+}
 
 /* Accesibilidad: estados focus visibles en navegadores sin outline */
 :focus-visible {
@@ -23,3 +27,12 @@ html, body, #root {
   outline-offset: 2px;
 }
 
+/* En desktop, permitir scroll normal del documento */
+@media (min-width: 768px) {
+  html, body {
+    overflow: auto;   /* re-activa scroll del body */
+  }
+  #root {
+    height: auto;     /* evita forzar alto completo en desktop */
+  }
+}
