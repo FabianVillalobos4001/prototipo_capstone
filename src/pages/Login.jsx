@@ -1,18 +1,30 @@
 import { useState } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../features/auth/AuthContext'
 import Input from '../components/Input'
 import Button from '../components/Button'
 
 export default function Login() {
   const { login } = useAuth()
+  const nav = useNavigate()
+  const loc = useLocation()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [err, setErr] = useState('')
+  const [loading, setLoading] = useState(false)
 
   const onSubmit = async (e) => {
     e.preventDefault()
-    try { await login(email, password) }
-    catch (e) { setErr('Credenciales inválidas') }
+    setErr('')
+    setLoading(true)
+    try {
+      await login(email, password)
+      nav(loc.state?.from || '/', { replace: true })
+    } catch (e) {
+      setErr(e?.response?.data?.error || 'Credenciales inválidas')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -22,7 +34,7 @@ export default function Login() {
         {err && <p className="text-red-600 text-sm">{err}</p>}
         <Input label="Email" type="email" value={email} onChange={e=>setEmail(e.target.value)} required />
         <Input label="Contraseña" type="password" value={password} onChange={e=>setPassword(e.target.value)} required />
-        <Button type="submit">Entrar</Button>
+        <Button type="submit" disabled={loading}>{loading ? 'Entrando…' : 'Entrar'}</Button>
       </form>
     </main>
   )

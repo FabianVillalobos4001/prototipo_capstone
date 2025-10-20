@@ -8,24 +8,22 @@ const tabsBase = [
 ];
 
 export default function BottomNav() {
-  const { user } = useAuth?.() ?? { user: null };
+  const { user } = useAuth();
 
-  // Último tab: siempre "Usuario". Si luego agregas /profile, aquí lo puedes cambiar con user ? "/profile" : "/login"
-  const userTab = { to: "/login", label: "Usuario", icon: UserIcon };
-
+  // si hay usuario → /profile, si no → /login
+  const userTab = { to: user ? "/profile" : "/login", label: user ? "Perfil" : "Ingresar", icon: UserIcon };
   const tabs = [...tabsBase, userTab];
 
   return (
     <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-black/95 backdrop-blur border-t border-neutral-800">
       <ul className="grid grid-cols-4">
         {tabs.map(({ to, label, icon: Icon }) => (
-          <li key={to} className="contents">
+          <li key={to + label} className="contents">
             <NavLink
               to={to}
               className={({ isActive }) =>
                 [
-                  "flex flex-col items-center justify-center gap-1 py-2 text-xs",
-                  "transition-colors",
+                  "flex flex-col items-center justify-center gap-1 py-2 text-xs transition-colors",
                   isActive ? "text-white" : "text-gray-400 hover:text-white",
                 ].join(" ")
               }
@@ -36,13 +34,12 @@ export default function BottomNav() {
           </li>
         ))}
       </ul>
-      {/* safe-area para iOS */}
       <div className="h-[env(safe-area-inset-bottom,0)]" />
     </nav>
   );
 }
 
-/* ====== Iconos (SVG inline) ====== */
+/* ====== Iconos (SVG) ====== */
 function HomeIcon({ className = "" }) {
   return (
     <svg viewBox="0 0 24 24" className={className} fill="none">
