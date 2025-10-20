@@ -36,3 +36,8 @@ html, body, #root {
     height: auto;     /* evita forzar alto completo en desktop */
   }
 }
+
+/* Asegura que las sugerencias de Google queden por encima de modales/headers */
+.pac-container {
+  z-index: 99999 !important;
+}

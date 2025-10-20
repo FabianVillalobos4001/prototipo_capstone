@@ -6,6 +6,7 @@ import { connectDB } from './config/db.js'
 
 import auth from './routes/auth.js'
 import profile from './routes/profile.js'
+import tripes from './routes/trips.js'
 
 dotenv.config()
 connectDB()
@@ -22,6 +23,7 @@ app.use(express.json())
 
 app.use('/api/auth', auth)
 app.use('/api/profile', profile)
+app.use('/api/trips', tripes)
 
 app.listen(PORT, () => {
   console.log(`✅ Servidor corriendo en http://localhost:${PORT}`)
