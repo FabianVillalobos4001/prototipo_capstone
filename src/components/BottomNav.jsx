@@ -12,11 +12,15 @@ export default function BottomNav() {
 
   // si hay usuario → /profile, si no → /login
   const userTab = { to: user ? "/profile" : "/login", label: user ? "Perfil" : "Ingresar", icon: UserIcon };
-  const tabs = [...tabsBase, userTab];
+  const tabs = [
+    ...tabsBase,
+    { to: "/receipts/scan", label: "Escanear", icon: CameraIcon },
+    userTab,
+  ];
 
   return (
     <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-black/95 backdrop-blur border-t border-neutral-800">
-      <ul className="grid grid-cols-4">
+      <ul className="grid grid-cols-5">
         {tabs.map(({ to, label, icon: Icon }) => (
           <li key={to + label} className="contents">
             <NavLink
@@ -60,6 +64,14 @@ function EstimateIcon({ className = "" }) {
       <path d="M4 19V5a1 1 0 0 1 1-1h8l7 7v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1Z" stroke="currentColor" strokeWidth="2"/>
       <path d="M13 4v6h6" stroke="currentColor" strokeWidth="2"/>
       <path d="M8 15h8M8 11h3" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+    </svg>
+  );
+}
+function CameraIcon({ className = "" }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none">
+      <path d="M3 8a2 2 0 0 1 2-2h2l1.2-1.8A2 2 0 0 1 9.8 3h4.4a2 2 0 0 1 1.6.8L17 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8Z" stroke="currentColor" strokeWidth="2"/>
+      <circle cx="12" cy="13" r="4" stroke="currentColor" strokeWidth="2" />
     </svg>
   );
 }

@@ -9,6 +9,7 @@ import RequestTrip from './pages/RequestTrip'
 import Deals from './pages/Deals'
 import Profile from './pages/Profile'
 import 'leaflet/dist/leaflet.css'
+import ReceiptScanner from './pages/ReceiptScanner'
 
 function AppShell() {
   const { pathname } = useLocation()
@@ -25,6 +26,8 @@ function AppShell() {
           <Route path="/request" element={<ProtectedRoute><RequestTrip /></ProtectedRoute>} />
           <Route path="/deals" element={<ProtectedRoute><Deals /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+          <Route path="/receipts/scan" element={<ProtectedRoute><ReceiptScanner /></ProtectedRoute>} />
+          <Route path="/receipt-scanner" element={<ProtectedRoute><ReceiptScanner /></ProtectedRoute>} />
 
           <Route path="*" element={<Login />} />
         </Routes>

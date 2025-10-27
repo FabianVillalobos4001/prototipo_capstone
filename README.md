@@ -1,299 +1,237 @@
-# 🚀 PROTOTIPO CAPSTONE — Frontend + Backend
+# PROTOTIPO CAPSTONE — Frontend + Backend
 
-Este proyecto es una base completa para trabajar en equipo entre **frontend (React + Vite + Tailwind CSS)** y **backend (Express + Node.js)**.
-
-Está pensado para:
-- 👩‍💻 Estudiantes que cursan su **primer ramo de diseño de software**, y quieren entender cómo se estructura un proyecto moderno.
-- 🧑‍🔧 Compañeros con **experiencia en backend** que implementarán la lógica de negocio y las APIs.
+Repositorio monorepo con frontend en React (Vite + Tailwind CSS) y backend en Node.js (Express + MongoDB/Mongoose). Incluye un flujo de “Escanear boleta” con OCR en el navegador (Tesseract.js) y estandarización/almacenamiento en la base de datos.
 
 ---
 
-## 🧩 Estructura general del proyecto
+## Estructura Del Repositorio
 
 ```
-PROTOTIPO-CAPSTONE/
-│
-├─ my-app/                 # Frontend (React + Vite + TailwindCSS)
-│  ├─ src/
-│  ├─ index.html
-│  ├─ package.json
-│  └─ vite.config.js
-│
-└─ my-app/server/          # Backend (Express)
-   ├─ index.js
-   ├─ .env
-   ├─ nodemon.json
-   └─ package.json
-```
+my-app/
+  package.json                # Frontend (Vite)
+  vite.config.js              # Config Vite + Tailwind
+  index.html
+  src/
+    api/
+      axios.js               # Instancia Axios base http://localhost:3000/api
+      receipts.js            # API cliente de recibos
+      trips.js               # API cliente de viajes
+    components/              # UI (Header, BottomNav, etc.)
+    features/auth/           # Contexto auth + rutas protegidas
+    hooks/                   # Hooks reutilizables
+    lib/                     # Integraciones (Google Maps, geocoding)
+    pages/                   # Páginas (Home, Login, Profile, RequestTrip, Deals)
+      ReceiptScanner.jsx     # Escaneo/Upload + OCR en cliente
+    main.jsx
+    App.jsx                  # Rutas, layout y navegación
 
----
-
-## 🧱 Tecnologías y versiones utilizadas
-
-| Área | Herramienta | Versión estable |
-|------|--------------|----------------|
-| Frontend | **Vite** | 5.x |
-| | **React** | 18.x o 19.x |
-| | **TailwindCSS** | 4.x |
-| | **@tailwindcss/vite** | 4.x |
-| Backend | **Express** | 4.19.2 |
-| | **CORS** | 2.8.5 |
-| | **Dotenv** | 16.4.5 |
-| | **Nodemon** | 3.1.10 |
-| General | **Node.js** | 18.x o 20.x (también funciona con 22.x) |
-
----
-
-## ⚙️ Instalación paso a paso
-
-### 🟦 1. Crear el frontend con Vite + React
-
-Desde la carpeta raíz del proyecto:
-```bash
-npm create vite@latest my-app -- --template react
-cd my-app
-npm install
-```
-
-### 🟩 2. Configurar TailwindCSS v4
-
-```bash
-npm i -D tailwindcss @tailwindcss/vite
-```
-
-#### 🧩 vite.config.js
-```js
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import tailwind from '@tailwindcss/vite'
-
-export default defineConfig({
-  plugins: [react(), tailwind()],
-  server: {
-    proxy: {
-      '/api': 'http://localhost:3000' // conexión con backend
-    }
-  }
-})
-```
-
-#### 🧩 src/index.css
-```css
-@import "tailwindcss";
-
-@theme {
-  /* Ejemplo de personalización */
-  /* --color-brand: #0ea5e9; */
-}
-```
-
-#### 🧩 src/App.jsx
-```jsx
-import { useEffect, useState } from 'react'
-import './index.css'
-
-export default function App() {
-  const [msg, setMsg] = useState('...')
-
-  useEffect(() => {
-    fetch('/api/hello')
-      .then(r => r.json())
-      .then(d => setMsg(d.message))
-      .catch(e => setMsg('error: ' + e.message))
-  }, [])
-
-  return (
-    <div className="min-h-screen grid place-items-center">
-      <h1 className="text-2xl font-bold">{msg}</h1>
-    </div>
-  )
-}
-```
-
-#### Correr el frontend
-```bash
-npm run dev
-# → http://localhost:5173
+  server/
+    package.json             # Backend (ESM habilitado)
+    index.js                 # App Express + rutas + estáticos
+    nodemon.json
+    .env                     # Variables de entorno (local)
+    config/
+      db.js                  # Conexión a MongoDB
+    middleware/
+      requireAuth.js         # (si corresponde)
+    models/
+      User.js                # Usuario
+      Trip.js                # Viajes
+      Expense.js             # (existente)
+      Group.js, GroupRide.js # (existentes)
+      Receipt.js             # NUEVO modelo Recibo/Boleta
+    routes/
+      auth.js                # Login/Logout/Me (JWT via cookie)
+      trips.js               # Viajes
+      match.js               # Matching
+      profile.js             # Perfil
+      transvip/air.js        # Integración externa (existente)
+      receipts.js            # NUEVOS endpoints Recibos/Boletas
+    scripts/
+      seedUsers.js           # Seeder usuarios
+    utils/
+      parseReceipt.js        # Parser de texto OCR → campos normalizados
+    uploads/                 # Carpeta de imágenes servida como estático
 ```
 
 ---
 
-### 🟥 3. Crear el backend con Express
+## Tecnologías
 
-Desde dentro de `my-app`:
+- Frontend
+  - Vite 7, React 19, React Router 7
+  - Tailwind CSS 4 (plugin @tailwindcss/vite)
+  - Axios
+  - Tesseract.js (OCR en navegador)
 
-```bash
-mkdir server
-cd server
-npm init -y
-npm i express@4.19.2 cors@2.8.5 dotenv@16.4.5
-npm i -D nodemon@3.1.10
-```
-
-#### 🧩 server/package.json
-```json
-{
-  "name": "server",
-  "version": "1.0.0",
-  "type": "module",
-  "main": "index.js",
-  "scripts": {
-    "dev": "nodemon --config nodemon.json",
-    "start": "node index.js"
-  },
-  "dependencies": {
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
-    "express": "^4.19.2"
-  },
-  "devDependencies": {
-    "nodemon": "^3.1.10"
-  }
-}
-```
-
-#### 🧩 server/nodemon.json
-```json
-{
-  "watch": ["index.js", "routes", "controllers"],
-  "ext": "js,mjs,cjs,json",
-  "ignore": [
-    "node_modules",
-    ".git",
-    ".env",
-    ".env.*",
-    "npm-debug.log",
-    "yarn.lock",
-    "package-lock.json"
-  ],
-  "exec": "node index.js"
-}
-```
-
-#### 🧩 server/.env
-```
-PORT=3000
-API_KEY=tu_super_secreto
-```
-
-#### 🧩 server/index.js
-```js
-import express from 'express'
-import cors from 'cors'
-import dotenv from 'dotenv'
-
-dotenv.config()
-
-const app = express()
-const PORT = process.env.PORT || 3000
-
-app.use(cors())
-app.use(express.json())
-
-// Ruta de prueba
-app.get('/api/hello', (_req, res) => {
-  res.json({ message: 'Hola desde Express 👋' })
-})
-
-// Ejemplo de API que usa variable privada
-app.get('/api/datos', async (_req, res) => {
-  try {
-    const r = await fetch('https://api.ejemplo.com/data', {
-      headers: { Authorization: `Bearer ${process.env.API_KEY}` }
-    })
-    if (!r.ok) throw new Error(`HTTP ${r.status}`)
-    res.json(await r.json())
-  } catch (err) {
-    console.error(err)
-    res.status(500).json({ error: 'Error al obtener datos' })
-  }
-})
-
-app.listen(PORT, () => {
-  console.log(`✅ Servidor corriendo en http://localhost:${PORT}`)
-})
-```
-
-#### Correr el backend
-```bash
-cd my-app/server
-npm run dev
-# ✅ Servidor corriendo en http://localhost:3000
-```
+- Backend
+  - Node.js 20/22 con módulos ESM
+  - Express 4, CORS, cookie-parser, dotenv, multer (uploads)
+  - Mongoose 8 (MongoDB)
 
 ---
 
-## 🤝 4. Trabajo en equipo
+## Configuración Y Entorno
 
-| Rol | Responsabilidades | Carpeta |
-|-----|--------------------|----------|
-| 👩‍🎨 Frontend (Diseño de Software) | Maquetar interfaz, conectar al backend vía `fetch('/api/...')`, manejar estados y componentes. | `my-app/` |
-| 🧑‍💻 Backend (Informática) | Definir endpoints REST, lógica de negocio, conexión a APIs externas o base de datos. | `my-app/server/` |
+- Requisitos
+  - Node.js >= 20
+  - MongoDB (local o Atlas)
 
-**Ambos pueden trabajar en paralelo**:  
-El frontend usa el *proxy* de Vite (`/api`) que redirige las peticiones al backend automáticamente.
-
----
-
-## 🧪 5. Verificar conexión
-
-1. Backend encendido → [http://localhost:3000/api/hello](http://localhost:3000/api/hello)  
-   → `{ "message": "Hola desde Express 👋" }`
-
-2. Frontend encendido → [http://localhost:5173](http://localhost:5173)  
-   → Muestra el mismo mensaje en pantalla.
+- Variables de entorno
+  - Frontend: usa base URL fija en `src/api/axios.js`
+    - `baseURL`: `http://localhost:3000/api`
+    - `withCredentials`: `true` (JWT via cookie)
+  - Backend (`my-app/server/.env`)
+    - `PORT=3000`
+    - `MONGO_URI=mongodb+srv://...` (o local)
+    - `JWT_SECRET=un_secreto_para_firmar_jwt`
 
 ---
 
-## ⚙️ 6. Ejecutar todo junto (opcional)
+## Scripts
 
-Desde `my-app`:
+- Frontend (desde `my-app/`)
+  - `npm run dev` → levanta Vite en `http://localhost:5173`
+  - `npm run build`, `npm run preview`
 
-```bash
-npm i -D concurrently
-```
+- Backend (desde `my-app/server/`)
+  - `npm run dev` → nodemon en `http://localhost:3000`
+  - `npm start` → node index.js
+  - `npm run seed:users` → ejecuta seeder básico
 
-Agrega en `my-app/package.json`:
-```json
-"scripts": {
-  "dev": "vite",
-  "dev:all": "concurrently \"npm run dev\" \"npm --prefix server run dev\""
-}
-```
-
-Luego:
-```bash
-npm run dev:all
-```
-
-Esto levantará **frontend y backend al mismo tiempo**.
+Sugerencia (opcional): ejecutar ambos a la vez con `concurrently` desde el root del frontend.
 
 ---
 
-## 🛡️ Buenas prácticas
+## Backend
 
-- ❌ Nunca subir `.env` al repositorio.
-- ✅ Usar `.gitignore` para ignorar `node_modules` y archivos temporales.
-- 🌐 En producción, restringir CORS solo al dominio de la aplicación.
-- 💬 Usar `console.log` para depuración local, y un *logger* (como `pino`) si se despliega online.
+- Módulos ESM habilitados (`type: module` en `server/package.json`). Usa `import … from` en todo el backend.
+- Conexión DB: `server/config/db.js` conecta vía `mongoose.connect(process.env.MONGO_URI)`.
+- Middlewares
+  - `cors({ origin: 'http://localhost:5173', credentials: true })`
+  - `cookieParser()` y `express.json()`
+  - Archivos estáticos: `app.use('/uploads', express.static(path.join(__dirname, 'uploads')))`
+
+**Rutas principales**
+- Auth: `/api/auth` → `login`, `me`, `logout` (JWT en cookie httpOnly)
+- Trips: `/api/trips`
+- Match: `/api/match`
+- Profile: `/api/profile`
+- Transvip: `/api/transvip`
+- Recibos/Boletas: `/api/receipts` (NUEVO)
+
+**Recibos/Boletas (OCR + guardado)**
+- Modelo `Receipt` (`server/models/Receipt.js`)
+  - `direccion: String`
+  - `origen: String`
+  - `destino: String`
+  - `precio: Number`
+  - `fechaHora: Date`
+  - `cantidadPasajeros: Number`
+  - `rawText: String` (texto OCR crudo; opcional)
+  - `imageUrl: String` (ruta pública)
+  - `createdBy: ObjectId` (User)
+
+- Parser `parseReceipt(text)` (`server/utils/parseReceipt.js`)
+  - Heurísticas con regex para extraer: fecha y hora, precio (total), dirección, origen, destino, cantidad de pasajeros.
+  - Mejorable por formato específico de boletas locales (CL/ES).
+
+- Endpoints (`server/routes/receipts.js`)
+  - `POST /api/receipts/upload` → multipart/form-data `image` → `{ imageUrl }`
+  - `POST /api/receipts/parse` → `{ text }` → campos normalizados
+  - `POST /api/receipts` → `{ text?, parsed?, imageUrl? }` → crea y guarda el documento
+  - `GET /api/receipts` → lista últimos 50
+  - `GET /api/receipts/:id` → detalle
+
+Uploads
+- Guardados en `server/uploads/receipts` y servidos por `/uploads/receipts/...`.
+- En producción, considerar S3/Cloud Storage.
 
 ---
 
-## ✅ Estado final esperado
+## Frontend
 
-| Servicio | Puerto | Comando | URL |
-|-----------|---------|----------|------|
-| Frontend | 5173 | `npm run dev` | [http://localhost:5173](http://localhost:5173) |
-| Backend | 3000 | `npm run dev` | [http://localhost:3000/api/hello](http://localhost:3000/api/hello) |
+- Entradas relevantes
+  - `src/App.jsx`: rutas y layout (Header, BottomNav). Rutas protegidas con `ProtectedRoute`.
+  - `src/features/auth/AuthContext.jsx`: contexto, login con cookie JWT vía `/api/auth`.
+  - `src/components/Header.jsx`: incluye botón “Escanear boleta”
+  - `src/components/BottomNav.jsx`: pestaña “Escanear” con icono de cámara
+  - `src/pages/ReceiptScanner.jsx` (NUEVO)
+    - Modos: “Subir archivo” (archivo/galería) y “Usar cámara” (getUserMedia)
+    - OCR con `tesseract.js` (`spa+eng`)
+    - Vista previa, parseo, guardado (imagen + texto) vía API recibos
+    - Lista últimas boletas
+
+- Cliente Axios (`src/api/axios.js`)
+  - `baseURL: http://localhost:3000/api`
+  - `withCredentials: true` (para cookies)
+
+- API Recibos (`src/api/receipts.js`)
+  - `uploadReceiptImage(file)`
+  - `parseReceiptText(text)`
+  - `createReceipt({ text, parsed, imageUrl })`
+  - `listReceipts()`
+
+Rutas App.jsx
+- `/, /request, /deals, /profile, /login`
+- `/receipts/scan` (nuevo) y alias existente `/receipt-scanner`
 
 ---
 
-### 📚 En resumen
-- **Diseño de Software:** trabaja visual y funcionalmente el frontend.
-- **Informática / Backend:** implementa rutas y lógica de negocio.
-- Ambos se comunican por HTTP usando `/api/...`.
+## Puesta En Marcha
+
+1) Backend
+- Variables en `server/.env` (ver sección Configuración y Entorno)
+- Instalar dependencias: `cd my-app/server && npm i`
+- Arrancar: `npm run dev` → `http://localhost:3000`
+
+2) Frontend
+- Instalar dependencias: `cd my-app && npm i`
+- Instalar OCR: `npm i tesseract.js`
+- Arrancar: `npm run dev` → `http://localhost:5173`
+
+3) Flujo Recibos (local)
+- Ir a `http://localhost:5173/receipts/scan`
+- Subir imagen (PC/galería) o usar cámara
+- Opcional: “Extraer texto (OCR)”
+- “Guardar” → sube imagen, parsea (si hay texto) y persiste en MongoDB
 
 ---
 
-> 💡 Consejo: este proyecto puede crecer añadiendo **base de datos**, **autenticación**, o **API externas**.  
-> La base que construyeron ahora les servirá para todo lo que venga después.
+## Notas Y Limitaciones
+
+- OCR
+  - Tesseract.js descarga modelos de idioma en tiempo de ejecución (requiere internet en desarrollo).
+  - Idiomas configurados: `spa+eng`. Se puede reducir a `spa` para boletas en español.
+- Archivos soportados
+  - Imágenes comunes (jpg/png). PDF/HEIC no están contemplados por ahora (se puede extender).
+- Seguridad
+  - JWT en cookie httpOnly; en producción usar `secure: true`, `sameSite` apropiado y `app.set('trust proxy', 1)` si hay proxy.
+- Estáticos
+  - Imágenes servidas por `/uploads`. En producción, preferir almacenamiento externo.
+
+---
+
+## Dependencias (Resumen)
+
+- Frontend
+  - `react`, `react-dom`, `react-router-dom`
+  - `vite`, `@vitejs/plugin-react`
+  - `tailwindcss`, `@tailwindcss/vite`
+  - `axios`, `tesseract.js`
+
+- Backend
+  - `express`, `cors`, `cookie-parser`, `dotenv`
+  - `mongoose`, `multer`
+  - `axios`, `jsonwebtoken`, `bcrypt` (auth), `tough-cookie` (si aplica)
+  - Dev: `nodemon`
+
+---
+
+## Próximos Pasos (Sugerencias)
+
+- Mejorar parser para formatos de boleta locales (regex por etiquetas típicas).
+- Soporte PDF/HEIC con conversión previa (cliente o servidor).
+- Validación y corrección manual de campos antes de guardar.
+- Subida a almacenamiento externo (S3) y CDN.
+

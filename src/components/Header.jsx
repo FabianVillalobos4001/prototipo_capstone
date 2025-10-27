@@ -15,6 +15,7 @@ export default function Header() {
 
   const navItems = [
     ...baseItems,
+    { to: "/receipts/scan", label: "Escanear boleta" },
     { to: userTabTo, label: user ? "Perfil" : "Ingresar", isUser: true },
   ];
 

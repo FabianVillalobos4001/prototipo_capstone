@@ -1,22 +1,15 @@
-// server/models/Trip.js
 import mongoose from 'mongoose'
+
 const TripSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
-  origin: {
-    address: String,
-    lat: Number,
-    lng: Number,
-  },
-  destination: {
-    address: String,
-    lat: Number,
-    lng: Number,
-  },
-  arrivalTime: Date,            // hora objetivo de llegada
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  groupId: { type: mongoose.Schema.Types.ObjectId, ref: 'Group', default: null },
+  origin: { address: String, lat: Number, lng: Number, placeId: String },
+  destination: { address: String, lat: Number, lng: Number, placeId: String },
+  arrivalTime: Date,
+  zone: String,
   bufferMinutes: { type: Number, default: 20 },
-  zone: { type: String, index: true }, // norte/centro/sur (rápido para filtros)
-  status: { type: String, default: 'planned', enum: ['planned','matched','completed','cancelled'] },
-  groupId: { type: mongoose.Schema.Types.ObjectId, ref: 'GroupRide' },
+  status: { type: String, default: 'planned' },
+  groupId: { type: mongoose.Schema.Types.ObjectId, ref: 'Group' },
 }, { timestamps: true })
 
 export default mongoose.model('Trip', TripSchema)
