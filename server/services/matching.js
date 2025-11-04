@@ -1,6 +1,7 @@
 // server/services/matching.js
 import Trip from '../models/Trip.js'
 import GroupRide from '../models/GroupRide.js'
+import { buildRouteZone } from '../utils/zones.js'
 
 export async function runMatching({ windowMinutes = 30, maxGroupSize = 4 }) {
   const now = new Date()
@@ -16,9 +17,12 @@ export async function runMatching({ windowMinutes = 30, maxGroupSize = 4 }) {
   const buckets = new Map()
 
   for (const t of trips) {
+    if (!t.destination?.lat || !t.destination?.lng) continue
     const slot = slotKey(t.arrivalTime, windowMinutes)
     const destKey = `${round(t.destination.lat,3)},${round(t.destination.lng,3)}`
-    const key = `${t.zone}|${destKey}|${slot}`
+    const zones = buildRouteZone(t.origin?.address, t.destination?.address)
+    const zoneKey = t.zone || zones.zone || 'zona-desconocida'
+    const key = `${zoneKey}|${destKey}|${slot}`
     if (!buckets.has(key)) buckets.set(key, [])
     buckets.get(key).push(t)
   }

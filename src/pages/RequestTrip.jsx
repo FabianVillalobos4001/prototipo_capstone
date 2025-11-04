@@ -14,7 +14,6 @@ export default function RequestTrip() {
   const [destination, setDestination] = useState(null)
   const [date, setDate] = useState(() => todayYYYYMMDD()) // "YYYY-MM-DD"
   const [time, setTime] = useState('')             // "HH:MM"
-  const [zone, setZone] = useState('centro')
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
 
@@ -39,7 +38,7 @@ export default function RequestTrip() {
       const arrivalTime = buildLocalDateISO(date, time) // ISO string
 
       await api.post('/trips', {
-        origin, destination, arrivalTime, zone, bufferMinutes: 20,
+        origin, destination, arrivalTime, bufferMinutes: 20,
       })
 
       nav('/') // Home
@@ -108,13 +107,6 @@ export default function RequestTrip() {
                    value={time} onChange={e=>setTime(e.target.value)} required />
           </div>
         </div>
-
-        <label className="text-sm font-medium">Zona</label>
-        <select className="border rounded p-2" value={zone} onChange={e=>setZone(e.target.value)}>
-          <option value="norte">Zona Norte</option>
-          <option value="centro">Zona Centro</option>
-          <option value="sur">Zona Sur</option>
-        </select>
 
         <button disabled={saving} className="mt-2 rounded bg-black text-white py-2">
           {saving ? 'Guardando…' : 'Confirmar viaje'}

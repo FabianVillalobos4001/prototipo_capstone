@@ -1,5 +1,5 @@
 // src/pages/Deals.jsx
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import GoogleAddressAutocomplete from '../components/GoogleAddressAutocomplete'
 import MapPickerModal from '../components/MapPickerModal'
 import api from '../api/axios'
@@ -10,74 +10,92 @@ export default function Deals() {
   const [open, setOpen] = useState(false)
   const [mode, setMode] = useState('origin')       // 'origin' | 'destination'
   const [loading, setLoading] = useState(false)
-  const [loadingTx, setLoadingTx] = useState(false)
   const [err, setErr] = useState('')
+  const [notice, setNotice] = useState('')
   const [options, setOptions] = useState([])
 
   const openMapFor = (m) => { setMode(m); setOpen(true) }
 
-  // --- BOTÓN "Buscar opciones" (tus opciones genéricas) ---
+  useEffect(() => {
+    setOptions([])
+    setErr('')
+    setNotice('')
+  }, [origin, destination])
+
+  // --- Botón "Buscar opciones" (consulta generales + Transvip) ---
   const search = async () => {
-    setErr(''); setOptions([]); setLoading(true)
+    setErr('')
+    setNotice('')
+    setOptions([])
     try {
       const { lat:oLat, lng:oLng } = origin || {}
       const { lat:dLat, lng:dLng } = destination || {}
       if (!oLat || !oLng || !dLat || !dLng) {
         setErr('Selecciona origen y destino'); return
       }
-      const { data } = await api.get('/quick/options', { params: { oLat, oLng, dLat, dLng } })
-      setOptions((data?.options || []).sort((a,b)=>(a.price ?? 1e12)-(b.price ?? 1e12)))
-    } catch (e) {
-      setErr(e?.response?.data?.error || 'No se pudieron obtener opciones')
-    } finally { setLoading(false) }
-  }
-
-  // --- BOTÓN "Transvip (Aeropuerto)" ---
-  const buscarTransvip = async () => {
-    setErr('')
-    if (!origin || !destination) {
-      setErr('Selecciona origen y destino'); return
-    }
-    // opcional: advertir si el destino no parece aeropuerto
-    if (!looksLikeAirport(destination?.address)) {
-      // no bloquea, solo avisa
-      setErr('Aviso: el destino no parece aeropuerto; Transvip (Aeropuerto) puede no aplicar')
-    }
-
-    setLoadingTx(true)
-    try {
-      const params = {
-        oLat: origin.lat,
-        oLng: origin.lng,
-        pickup_date: todayYYYYMMDD(),
-        pickup_hour: oneHourLaterRounded5(), // 1h después, redondeado a /5
-        pax: 1,
-        round_trip: 'N',
-        convenio: 379,                       // según tu captura
+      const airportLike = looksLikeAirport(destination?.address)
+      if (!airportLike) {
+        setNotice('Aviso: el destino no parece aeropuerto; algunas tarifas (Transvip) podrían no aplicar')
       }
 
-      const { data } = await api.get('/transvip/air', { params })
+      setLoading(true)
 
-      if (data?.ok) {
-        // Normaliza para tu UI (usa opt.price y opt.etaMin)
-        const mapped = (data.options || []).map(o => ({
-          id: o.id,
-          name: `Transvip · ${o.name}`,
-          price: o.price,                        // número
-          priceText: o.price_formatted,          // "CLP $9.600"
-          etaMin: o.etaSec ? Math.round(o.etaSec / 60) : null,
-          link: o.link || 'https://www.transvip.cl/'
-        }))
-        setOptions(prev =>
-          [...mapped, ...prev].sort((a,b)=>(a.price ?? 1e12)-(b.price ?? 1e12))
-        )
+      const quickPromise = api.get('/quick/options', { params: { oLat, oLng, dLat, dLng } })
+      const transvipPromise = api.get('/transvip/air', {
+        params: {
+          oLat: origin.lat,
+          oLng: origin.lng,
+          pickup_date: todayYYYYMMDD(),
+          pickup_hour: oneHourLaterRounded5(),
+          pax: 1,
+          round_trip: 'N',
+          convenio: 379,
+        },
+      }).catch(() => null)
+
+      const [quickRes, transvipRes] = await Promise.allSettled([quickPromise, transvipPromise])
+
+      const combined = []
+
+      if (quickRes.status === 'fulfilled') {
+        const raw = quickRes.value?.data?.options || []
+        combined.push(...raw.map(normalizeOption))
       } else {
-        setErr('Transvip no devolvió precios')
+        const msg = quickRes.reason?.response?.data?.error || quickRes.reason?.message || 'No se pudieron obtener opciones'
+        setErr((prev) => prev || msg)
       }
+
+      if (transvipRes && transvipRes.status === 'fulfilled') {
+        if (transvipRes.value === null) {
+          setNotice((prev) => prev || 'No fue posible consultar Transvip en este momento')
+        } else {
+          const data = transvipRes.value?.data
+          if (data?.ok) {
+          const mapped = (data.options || []).map((o) => ({
+            id: `transvip-${o.id || o.name}`,
+            name: `Transvip · ${o.name}`,
+            price: o.price,
+            priceText: o.price_formatted,
+            etaMin: o.etaSec ? Math.round(o.etaSec / 60) : null,
+            link: o.link || 'https://www.transvip.cl/',
+          }))
+          combined.push(...mapped)
+          } else if (!airportLike) {
+            setNotice((prev) => prev || 'Transvip no devolvió precios para este destino')
+          } else {
+            setErr((prev) => prev || 'Transvip no devolvió precios')
+          }
+        }
+      } else if (transvipRes?.status === 'rejected') {
+        setNotice((prev) => prev || 'No fue posible consultar Transvip en este momento')
+      }
+
+      combined.sort((a, b) => (a.price ?? Number.POSITIVE_INFINITY) - (b.price ?? Number.POSITIVE_INFINITY))
+      setOptions(combined)
     } catch (e) {
-      setErr('Error consultando Transvip')
+      setErr((prev) => prev || e?.response?.data?.error || 'No se pudieron obtener opciones')
     } finally {
-      setLoadingTx(false)
+      setLoading(false)
     }
   }
 
@@ -85,6 +103,7 @@ export default function Deals() {
     <main className="p-4 max-w-md mx-auto grid gap-4">
       <h1 className="text-xl font-bold">Viaje rápido</h1>
       {err && <p className="text-red-600 text-sm">{err}</p>}
+      {notice && <p className="text-amber-600 text-sm">{notice}</p>}
 
       {/* Origen */}
       <div className="grid gap-2">
@@ -136,14 +155,9 @@ export default function Deals() {
       </div>
 
       {/* Acciones */}
-      <button onClick={search} disabled={loading || loadingTx}
+      <button onClick={search} disabled={loading}
         className="rounded bg-black text-white py-2">
         {loading ? 'Buscando…' : 'Buscar opciones'}
-      </button>
-
-      <button onClick={buscarTransvip} disabled={loading || loadingTx}
-        className="rounded bg-neutral-800 text-white py-2">
-        {loadingTx ? 'Consultando Transvip…' : 'Transvip (Aeropuerto)'}
       </button>
 
       {/* Resultados */}
@@ -178,6 +192,23 @@ export default function Deals() {
 }
 
 /* ===== Helpers ===== */
+function normalizeOption(opt = {}) {
+  const rawPrice = opt.price ?? null;
+  const price = typeof rawPrice === 'number' ? rawPrice : (rawPrice != null ? Number(rawPrice) : null);
+  const currency = opt.currency || 'CLP';
+  const name = opt.name || opt.provider || 'Opción';
+  const fallbackId = opt.id || `${opt.provider || 'op'}-${name}`.toLowerCase().replace(/\s+/g, '-');
+
+  return {
+    id: fallbackId,
+    name,
+    price,
+    priceText: opt.priceText || (price != null ? `${currency} $${price.toLocaleString('es-CL')}` : undefined),
+    etaMin: opt.etaMin ?? null,
+    link: opt.link || '#',
+  };
+}
+
 function looksLikeAirport(addr='') {
   const a = addr.toLowerCase()
   return a.includes('aeropuerto') || a.includes('arturo merino') || a.includes('scl')

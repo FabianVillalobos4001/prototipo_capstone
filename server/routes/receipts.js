@@ -43,8 +43,11 @@ router.post('/parse', express.json(), (req, res) => {
 // POST /api/receipts
 router.post('/', express.json(), async (req, res) => {
   try {
-    const { text, parsed, imageUrl } = req.body || {};
+    const { text, parsed, imageUrl, metodoTransporte } = req.body || {};
     const fields = parsed || (text ? parseReceipt(text) : {});
+    if (metodoTransporte) {
+      fields.metodoTransporte = metodoTransporte;
+    }
     const createdBy = req.user?.id || undefined; // si tienes auth
     const doc = await Receipt.create({
       ...fields,

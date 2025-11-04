@@ -6,7 +6,15 @@ const ReceiptSchema = new mongoose.Schema(
     // Campos estándar solicitados
     origen: { type: String, trim: true },
     destino: { type: String, trim: true },
+    region: { type: String, trim: true },
+    comuna: { type: String, trim: true },
     precio: { type: Number },
+    metodoTransporte: {
+      type: String,
+      enum: ['uber', 'transvip', 'cabify', 'didi', 'otro'],
+      lowercase: true,
+      trim: true,
+    },
     fechaHora: { type: Date },
     fecha: { type: Date },
     hora: { type: String },

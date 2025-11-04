@@ -19,7 +19,7 @@ export default function BottomNav() {
   ];
 
   return (
-    <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-black/95 backdrop-blur border-t border-neutral-800">
+    <nav className="md:hidden fixed bottom-0 inset-x-0 z-[1100] bg-black/95 backdrop-blur border-t border-neutral-800">
       <ul className="grid grid-cols-5">
         {tabs.map(({ to, label, icon: Icon }) => (
           <li key={to + label} className="contents">

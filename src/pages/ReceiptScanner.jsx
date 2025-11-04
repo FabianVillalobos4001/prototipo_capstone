@@ -11,6 +11,7 @@ export default function ReceiptScanner() {
   const [progress, setProgress] = useState(0);
   const [text, setText] = useState("");
   const [parsed, setParsed] = useState(null);
+  const [metodoTransporte, setMetodoTransporte] = useState(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(null);
   const [error, setError] = useState(null);
@@ -57,6 +58,9 @@ export default function ReceiptScanner() {
     if (!file) return;
     setImageFile(file);
     setImagePreview(URL.createObjectURL(file));
+    setText("");
+    setParsed(null);
+    setMetodoTransporte(null);
   };
 
   const takePhoto = () => {
@@ -72,6 +76,9 @@ export default function ReceiptScanner() {
       const file = new File([blob], `camera_${Date.now()}.jpg`, { type: "image/jpeg" });
       setImageFile(file);
       setImagePreview(URL.createObjectURL(blob));
+      setText("");
+      setParsed(null);
+      setMetodoTransporte(null);
     }, "image/jpeg", 0.95);
   };
 
@@ -90,6 +97,7 @@ export default function ReceiptScanner() {
       setText(t);
       const p = await parseReceiptText(t);
       setParsed(p);
+      setMetodoTransporte(p?.metodoTransporte || null);
     } catch (e) {
       console.error(e);
       setError("Error en OCR o parseo");
@@ -99,7 +107,7 @@ export default function ReceiptScanner() {
   };
 
   const saveReceipt = async () => {
-    if (!text && !imageFile) return;
+    if ((!text && !imageFile) || !metodoTransporte) return;
     setSaving(true);
     setError(null);
     try {
@@ -108,7 +116,12 @@ export default function ReceiptScanner() {
         const { imageUrl: url } = await uploadReceiptImage(imageFile);
         imageUrl = url;
       }
-      const doc = await createReceipt({ text: text || "", parsed, imageUrl });
+      const doc = await createReceipt({
+        text: text || "",
+        parsed: parsed ? { ...parsed, metodoTransporte } : { metodoTransporte },
+        imageUrl,
+        metodoTransporte,
+      });
       setSaved(doc);
       const r = await listReceipts();
       setRecent(r);
@@ -118,6 +131,22 @@ export default function ReceiptScanner() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const transportOptions = [
+    { key: "uber", label: "Uber" },
+    { key: "transvip", label: "Transvip" },
+    { key: "cabify", label: "Cabify" },
+    { key: "didi", label: "DiDi" },
+    { key: "otro", label: "Otros" },
+  ];
+
+  const handleMetodoTransporte = (value) => {
+    setMetodoTransporte(value);
+    setParsed((prev) => {
+      if (!prev) return { metodoTransporte: value };
+      return { ...prev, metodoTransporte: value };
+    });
   };
 
   return (
@@ -184,7 +213,7 @@ export default function ReceiptScanner() {
         <button
           className="px-3 py-2 bg-green-600 text-white rounded disabled:opacity-50"
           onClick={saveReceipt}
-          disabled={(!text && !imageFile) || saving}
+          disabled={(!text && !imageFile) || saving || !metodoTransporte}
         >
           {saving ? "Guardando..." : "Guardar"}
         </button>
@@ -205,10 +234,40 @@ export default function ReceiptScanner() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
             <div><span className="font-semibold">Origen:</span> {parsed.origen || "-"}</div>
             <div><span className="font-semibold">Destino:</span> {parsed.destino || "-"}</div>
+            <div><span className="font-semibold">Comuna:</span> {parsed.comuna || "-"}</div>
+            <div><span className="font-semibold">Región:</span> {parsed.region || "-"}</div>
             <div><span className="font-semibold">Precio:</span> {parsed.precio ?? "-"}</div>
             <div><span className="font-semibold">Fecha:</span> {parsed.fecha ? new Date(parsed.fecha).toLocaleDateString() : (parsed.fechaHora ? new Date(parsed.fechaHora).toLocaleDateString() : "-")}</div>
             <div><span className="font-semibold">Hora:</span> {parsed.hora || (parsed.fechaHora ? new Date(parsed.fechaHora).toLocaleTimeString() : "-")}</div>
             <div><span className="font-semibold">Pasajeros:</span> {parsed.cantidadPasajeros ?? "-"}</div>
+            <div><span className="font-semibold">Transporte detectado:</span> {parsed.metodoTransporte ? parsed.metodoTransporte.toUpperCase() : "No detectado"}</div>
+          </div>
+        </div>
+      )}
+
+      {(parsed || text) && (
+        <div className="mb-4">
+          <h2 className="font-medium mb-2">Selecciona el método de transporte</h2>
+          <p className="text-sm text-gray-600 mb-2">
+            {metodoTransporte
+              ? "Puedes cambiar el método si el detectado es incorrecto."
+              : "No pudimos identificarlo automáticamente, selecciona una opción para continuar."}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {transportOptions.map((opt) => (
+              <button
+                key={opt.key}
+                type="button"
+                onClick={() => handleMetodoTransporte(opt.key)}
+                className={`px-3 py-2 rounded border transition ${
+                  metodoTransporte === opt.key
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-white text-gray-700 border-gray-300 hover:border-blue-400"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
           </div>
         </div>
       )}
@@ -224,7 +283,7 @@ export default function ReceiptScanner() {
         <ul className="text-sm list-disc pl-5">
           {recent.map((r) => (
             <li key={r._id}>
-              {new Date(r.createdAt).toLocaleString()} - {r.origen || "-"} -> {r.destino || "-"} - {r.precio ?? "-"}
+              {new Date(r.createdAt).toLocaleString()} - {r.origen || "-"} ➜ {r.destino || "-"} - {r.precio ?? "-"} - {r.metodoTransporte || "-"} ({r.comuna || "?"}, {r.region || "?"})
             </li>
           ))}
         </ul>

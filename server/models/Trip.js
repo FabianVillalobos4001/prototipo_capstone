@@ -6,10 +6,11 @@ const TripSchema = new mongoose.Schema({
   origin: { address: String, lat: Number, lng: Number, placeId: String },
   destination: { address: String, lat: Number, lng: Number, placeId: String },
   arrivalTime: Date,
+  originZone: { type: String },
+  destinationZone: { type: String },
   zone: String,
   bufferMinutes: { type: Number, default: 20 },
   status: { type: String, default: 'planned' },
-  groupId: { type: mongoose.Schema.Types.ObjectId, ref: 'Group' },
 }, { timestamps: true })
 
 export default mongoose.model('Trip', TripSchema)

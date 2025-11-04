@@ -15,8 +15,12 @@ export const parseReceiptText = async (text) => {
   return data; // parsed fields
 };
 
-export const createReceipt = async ({ text, parsed, imageUrl }) => {
-  const { data } = await api.post('/receipts', { text, parsed, imageUrl });
+export const createReceipt = async ({ text, parsed, imageUrl, metodoTransporte }) => {
+  const payload = { text, parsed, imageUrl };
+  if (metodoTransporte) {
+    payload.metodoTransporte = metodoTransporte;
+  }
+  const { data } = await api.post('/receipts', payload);
   return data;
 };
 
