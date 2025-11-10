@@ -1,10 +1,25 @@
 ﻿// my-app/src/pages/ReceiptScanner.jsx
 import { useEffect, useRef, useState } from "react";
 import Tesseract from "tesseract.js";
-import { uploadReceiptImage, parseReceiptText, createReceipt, listReceipts } from "../api/receipts";
+import {
+  uploadReceiptImage,
+  parseReceiptText,
+  createReceipt,
+  // listReceipts  // ← eliminado
+} from "../api/receipts";
+
+// Flecha simple sin librerías (rota al abrir/cerrar)
+const ChevronDown = ({ rotated }) => (
+  <span
+    className={`inline-block transition-transform ${rotated ? "rotate-180" : ""}`}
+    aria-hidden="true"
+  >
+    ▼
+  </span>
+);
 
 export default function ReceiptScanner() {
-  const [mode, setMode] = useState("upload"); // 'upload' | 'camera'
+  const [mode, setMode] = useState("upload");
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [recognizing, setRecognizing] = useState(false);
@@ -15,7 +30,7 @@ export default function ReceiptScanner() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(null);
   const [error, setError] = useState(null);
-  const [recent, setRecent] = useState([]);
+  const [showText, setShowText] = useState(false);
 
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -26,14 +41,16 @@ export default function ReceiptScanner() {
     if (mode !== "camera") return;
     (async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" },
+        });
         streamRef.current = stream;
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           await videoRef.current.play();
         }
-      } catch (e) {
-        setError("No se pudo acceder a la camara");
+      } catch {
+        setError("No se pudo acceder a la cámara");
       }
     })();
     return () => {
@@ -43,15 +60,6 @@ export default function ReceiptScanner() {
       }
     };
   }, [mode]);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const r = await listReceipts();
-        setRecent(r);
-      } catch {}
-    })();
-  }, []);
 
   const onFileChange = (e) => {
     const file = e.target.files?.[0];
@@ -71,15 +79,21 @@ export default function ReceiptScanner() {
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext("2d");
     ctx.drawImage(video, 0, 0);
-    canvas.toBlob((blob) => {
-      if (!blob) return;
-      const file = new File([blob], `camera_${Date.now()}.jpg`, { type: "image/jpeg" });
-      setImageFile(file);
-      setImagePreview(URL.createObjectURL(blob));
-      setText("");
-      setParsed(null);
-      setMetodoTransporte(null);
-    }, "image/jpeg", 0.95);
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) return;
+        const file = new File([blob], `camera_${Date.now()}.jpg`, {
+          type: "image/jpeg",
+        });
+        setImageFile(file);
+        setImagePreview(URL.createObjectURL(blob));
+        setText("");
+        setParsed(null);
+        setMetodoTransporte(null);
+      },
+      "image/jpeg",
+      0.95
+    );
   };
 
   const runOCR = async () => {
@@ -90,7 +104,8 @@ export default function ReceiptScanner() {
     try {
       const result = await Tesseract.recognize(imageFile, "spa+eng", {
         logger: (m) => {
-          if (m.status === "recognizing text" && m.progress != null) setProgress(m.progress);
+          if (m.status === "recognizing text" && m.progress != null)
+            setProgress(m.progress);
         },
       });
       const t = result.data?.text || "";
@@ -123,8 +138,7 @@ export default function ReceiptScanner() {
         metodoTransporte,
       });
       setSaved(doc);
-      const r = await listReceipts();
-      setRecent(r);
+      // ya no actualizamos "recent" ni mostramos la lista
     } catch (e) {
       console.error(e);
       setError("No se pudo guardar la boleta");
@@ -143,17 +157,17 @@ export default function ReceiptScanner() {
 
   const handleMetodoTransporte = (value) => {
     setMetodoTransporte(value);
-    setParsed((prev) => {
-      if (!prev) return { metodoTransporte: value };
-      return { ...prev, metodoTransporte: value };
-    });
+    setParsed((prev) => (!prev ? { metodoTransporte: value } : { ...prev, metodoTransporte: value }));
   };
+
+  // Estilo base: botones negros
+  const blackBtn =
+    "px-3 py-2 rounded border border-black bg-black text-white hover:bg-white hover:text-black transition-all disabled:bg-black disabled:text-white disabled:opacity-100 active:scale-95";
 
   return (
     <div className="p-4 max-w-3xl mx-auto">
       <h1 className="text-2xl font-semibold mb-4">Escanear Boleta</h1>
 
-      {/* input oculto para abrir el explorador desde el boton */}
       <input
         ref={fileInputRef}
         type="file"
@@ -164,7 +178,7 @@ export default function ReceiptScanner() {
 
       <div className="flex gap-2 mb-4">
         <button
-          className={`px-3 py-2 rounded ${mode === "upload" ? "bg-blue-600 text-white" : "bg-gray-200"}`}
+          className={`${blackBtn} ${mode === "upload" ? "opacity-100" : "opacity-90"}`}
           onClick={() => {
             setMode("upload");
             fileInputRef.current?.click();
@@ -172,25 +186,22 @@ export default function ReceiptScanner() {
         >
           Subir archivo
         </button>
+
         <button
-          className={`px-3 py-2 rounded ${mode === "camera" ? "bg-blue-600 text-white" : "bg-gray-200"}`}
+          className={`${blackBtn} ${mode === "camera" ? "opacity-100" : "opacity-90"}`}
           onClick={() => setMode("camera")}
         >
-          Usar camara
+          Usar cámara
         </button>
       </div>
-
-      {mode === "upload" && (
-        <div className="mb-4">
-          <input type="file" accept="image/*" onChange={onFileChange} />
-        </div>
-      )}
 
       {mode === "camera" && (
         <div className="mb-4">
           <video ref={videoRef} className="w-full rounded border" />
           <div className="flex gap-2 mt-2">
-            <button className="px-3 py-2 bg-gray-200 rounded" onClick={takePhoto}>Tomar foto</button>
+            <button className={blackBtn} onClick={takePhoto}>
+              Tomar foto
+            </button>
           </div>
           <canvas ref={canvasRef} className="hidden" />
         </div>
@@ -203,15 +214,12 @@ export default function ReceiptScanner() {
       )}
 
       <div className="flex gap-2 mb-4">
-        <button
-          className="px-3 py-2 bg-blue-600 text-white rounded disabled:opacity-50"
-          onClick={runOCR}
-          disabled={!imageFile || recognizing}
-        >
+        <button className={blackBtn} onClick={runOCR} disabled={!imageFile || recognizing}>
           {recognizing ? `Reconociendo ${Math.round(progress * 100)}%` : "Extraer texto (OCR)"}
         </button>
+
         <button
-          className="px-3 py-2 bg-green-600 text-white rounded disabled:opacity-50"
+          className={blackBtn}
           onClick={saveReceipt}
           disabled={(!text && !imageFile) || saving || !metodoTransporte}
         >
@@ -221,10 +229,28 @@ export default function ReceiptScanner() {
 
       {error && <div className="text-red-600 mb-2">{error}</div>}
 
+      {/* Bloque colapsable: Texto extraído */}
       {text && (
-        <div className="mb-4">
-          <h2 className="font-medium mb-2">Texto extraido</h2>
-          <pre className="p-3 bg-gray-50 border rounded whitespace-pre-wrap text-sm">{text}</pre>
+        <div className="mb-4 border rounded">
+          <button
+            type="button"
+            onClick={() => setShowText((s) => !s)}
+            className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50"
+            aria-expanded={showText}
+            aria-controls="texto-extraido"
+          >
+            <span className="font-medium">Texto extraído</span>
+            <ChevronDown rotated={showText} />
+          </button>
+
+          {showText && (
+            <pre
+              id="texto-extraido"
+              className="p-3 border-t rounded-b whitespace-pre-wrap text-sm"
+            >
+              {text}
+            </pre>
+          )}
         </div>
       )}
 
@@ -248,22 +274,13 @@ export default function ReceiptScanner() {
       {(parsed || text) && (
         <div className="mb-4">
           <h2 className="font-medium mb-2">Selecciona el método de transporte</h2>
-          <p className="text-sm text-gray-600 mb-2">
-            {metodoTransporte
-              ? "Puedes cambiar el método si el detectado es incorrecto."
-              : "No pudimos identificarlo automáticamente, selecciona una opción para continuar."}
-          </p>
           <div className="flex flex-wrap gap-2">
             {transportOptions.map((opt) => (
               <button
                 key={opt.key}
                 type="button"
                 onClick={() => handleMetodoTransporte(opt.key)}
-                className={`px-3 py-2 rounded border transition ${
-                  metodoTransporte === opt.key
-                    ? "bg-blue-600 text-white border-blue-600"
-                    : "bg-white text-gray-700 border-gray-300 hover:border-blue-400"
-                }`}
+                className={`${blackBtn} ${metodoTransporte === opt.key ? "bg-white text-black border-black" : ""}`}
               >
                 {opt.label}
               </button>
@@ -278,16 +295,7 @@ export default function ReceiptScanner() {
         </div>
       )}
 
-      <div>
-        <h2 className="font-medium mb-2">Ultimas boletas</h2>
-        <ul className="text-sm list-disc pl-5">
-          {recent.map((r) => (
-            <li key={r._id}>
-              {new Date(r.createdAt).toLocaleString()} - {r.origen || "-"} ➜ {r.destino || "-"} - {r.precio ?? "-"} - {r.metodoTransporte || "-"} ({r.comuna || "?"}, {r.region || "?"})
-            </li>
-          ))}
-        </ul>
-      </div>
+      {/* Se eliminó el bloque de "Últimas boletas" */}
     </div>
   );
 }
