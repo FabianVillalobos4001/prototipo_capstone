@@ -6,17 +6,17 @@ import cookieParser from 'cookie-parser';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-import { connectDB } from './config/db.js';
+import { connectDB } from './src/config/db.js';
 
-import auth from './routes/auth.js';
-import trips from './routes/trips.js';
-import match from './routes/match.js';
-import profile from './routes/profile.js';
-import transvip from './routes/transvip/air.js';
-import receiptsRouter from './routes/receipts.js';
+import auth from './src/routes/auth.js';
+import trips from './src/routes/trips.js';
+import match from './src/routes/match.js';
+import profile from './src/routes/profile.js';
+import transvip from './src/routes/transvip/air.js';
+import receiptsRouter from './src/routes/receipts.js';
 
 // ⬇️ NUEVO: importa tu modelo de usuario (ajusta la ruta si difiere)
-import User from './models/User.js';
+import User from './src/models/User.js';
 
 dotenv.config();
 const app = express();
