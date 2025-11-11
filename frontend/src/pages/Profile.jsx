@@ -83,6 +83,9 @@ export default function Profile() {
   });
   const [contactSaving, setContactSaving] = useState(false);
   const [contactFeedback, setContactFeedback] = useState(null);
+  const [nameValue, setNameValue] = useState("");
+  const [nameSaving, setNameSaving] = useState(false);
+  const [nameFeedback, setNameFeedback] = useState(null);
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: "",
     newPassword: "",
@@ -155,6 +158,7 @@ export default function Profile() {
       contactNote: profile.carpoolContactNote || "",
       shareContact: Boolean(profile.carpoolContactEnabled),
     });
+    setNameValue(profile.name || "");
   }, [profile]);
 
   if (!user) return null;
@@ -227,6 +231,26 @@ export default function Profile() {
     }
   };
 
+  const handleNameSubmit = async (event) => {
+    event.preventDefault();
+    if (!nameValue.trim()) {
+      setNameFeedback({ type: "error", message: "El nombre no puede estar vacio." });
+      return;
+    }
+    setNameSaving(true);
+    setNameFeedback(null);
+    try {
+      const { data } = await api.patch("/auth/profile", { name: nameValue.trim() });
+      setProfile((prev) => ({ ...prev, ...data }));
+      setNameFeedback({ type: "success", message: "Nombre actualizado." });
+    } catch (error) {
+      const msg = error?.response?.data?.error || "No se pudo actualizar el nombre.";
+      setNameFeedback({ type: "error", message: msg });
+    } finally {
+      setNameSaving(false);
+    }
+  };
+
   const updatePasswordForm = (field, value) => {
     setPasswordForm((prev) => ({ ...prev, [field]: value }));
     setPasswordFeedback(null);
@@ -270,6 +294,40 @@ export default function Profile() {
             <p className="text-sm text-gray-500">{email}</p>
           </div>
         </div>
+
+        {/* Actualizar nombre */}
+        <section className="w-full border rounded-xl shadow-sm p-4 space-y-4">
+          <div>
+            <h3 className="text-lg font-semibold">Nombre visible</h3>
+            <p className="text-sm text-gray-600">
+              Personaliza el nombre que veran tus companeros en los viajes compartidos.
+            </p>
+          </div>
+          <form className="space-y-3" onSubmit={handleNameSubmit}>
+            <label className="text-sm font-medium space-y-1 w-full">
+              Nombre completo
+              <input
+                type="text"
+                value={nameValue}
+                onChange={(e) => setNameValue(e.target.value)}
+                className="w-full rounded border px-3 py-2 text-sm"
+                placeholder="Ej: Maria Gomez"
+              />
+            </label>
+            {nameFeedback && (
+              <p className={`text-sm ${nameFeedback.type === "success" ? "text-emerald-600" : "text-red-600"}`}>
+                {nameFeedback.message}
+              </p>
+            )}
+            <button
+              type="submit"
+              className="w-full md:w-auto px-5 py-2 rounded-lg bg-black text-white text-sm font-medium disabled:opacity-60"
+              disabled={nameSaving}
+            >
+              {nameSaving ? "Guardando..." : "Guardar nombre"}
+            </button>
+          </form>
+        </section>
 
         {/* Contacto para viajes compartidos */}
         <section className="w-full border rounded-xl shadow-sm p-4 space-y-4">

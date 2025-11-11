@@ -75,6 +75,25 @@ r.patch('/contact', requireAuth, async (req, res) => {
   }
 })
 
+r.patch('/profile', requireAuth, async (req, res) => {
+  try {
+    const name = String(req.body?.name || '').trim()
+    if (!name) return res.status(400).json({ error: 'Nombre requerido' })
+
+    const user = await User.findByIdAndUpdate(
+      req.auth.id,
+      { name },
+      { new: true }
+    ).lean()
+
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' })
+    res.json(safeUser(user))
+  } catch (err) {
+    console.error('PATCH /auth/profile error', err)
+    res.status(500).json({ error: 'No se pudo actualizar el nombre' })
+  }
+})
+
 r.patch('/password', requireAuth, async (req, res) => {
   try {
     const { currentPassword = '', newPassword = '' } = req.body || {}
