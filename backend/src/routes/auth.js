@@ -1,3 +1,4 @@
+// src/routes/auth.js
 import { Router } from 'express'
 import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
@@ -7,14 +8,18 @@ const r = Router()
 const JWT_SECRET = process.env.JWT_SECRET || 'devsecret'
 const COOKIE_NAME = 'token'
 
+// Detecta entorno
+const isProd = process.env.NODE_ENV === 'production'
+
+// Usa los flags correctos según entorno
 function setAuthCookie(res, payload) {
   const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' })
   res.cookie(COOKIE_NAME, token, {
     httpOnly: true,
-    sameSite: 'lax',   // para localhost va bien
-    path: '/',         // <- importante
-    secure: false,     // en local http, en prod pon true + https + app.set('trust proxy',1)
-    maxAge: 7*24*60*60*1000,
+    sameSite: isProd ? 'none' : 'lax', // <- PROD: 'none' para permitir cross-site
+    secure: isProd,                    // <- PROD: true (HTTPS obligatorio)
+    path: '/',
+    maxAge: 7 * 24 * 60 * 60 * 1000,
   })
 }
 
@@ -25,6 +30,7 @@ r.post('/login', async (req, res) => {
   if (!u) return res.status(401).json({ error: 'Credenciales inválidas' })
   const ok = await bcrypt.compare(password, u.passwordHash)
   if (!ok) return res.status(401).json({ error: 'Credenciales inválidas' })
+
   setAuthCookie(res, { id: u._id, email: u.email, role: u.role })
   res.json({ user: { id: u._id, email: u.email, name: u.name, zone: u.zone, role: u.role } })
 })
@@ -43,7 +49,12 @@ r.get('/me', async (req, res) => {
 })
 
 r.post('/logout', (req, res) => {
-  res.clearCookie(COOKIE_NAME, { path: '/' })
+  // Para borrar en todos los navegadores, usa los mismos flags que al setear
+  res.clearCookie(COOKIE_NAME, {
+    path: '/',
+    sameSite: isProd ? 'none' : 'lax',
+    secure: isProd,
+  })
   res.json({ ok: true })
 })
 

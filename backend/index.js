@@ -20,16 +20,27 @@ import User from './src/models/User.js';
 
 dotenv.config();
 const app = express();
+app.set('trust proxy', 1); // si usas un proxy/reverse proxy
 const PORT = process.env.PORT || 3000;
 
 connectDB();
 
-app.use(
-  cors({
-    origin: process.env.FRONTEND_URL,
-    credentials: true,
-  })
-);
+const allowed = (process.env.FRONTEND_URLS || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
+
+app.use(cors({
+  origin(origin, cb) {
+    if (!origin) return cb(null, true); // permite curl o healthchecks
+    if (allowed.includes(origin)) return cb(null, true);
+    cb(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+}));
+
+// habilita preflight OPTIONS
+app.options('*', cors({ origin: allowed, credentials: true }));
 app.use(cookieParser());
 app.use(express.json());
 
