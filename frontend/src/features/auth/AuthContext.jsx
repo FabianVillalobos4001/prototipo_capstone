@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import api from '../../api/axios'
+import { initPushNotifications } from '../../utils/push'
 
 const AuthCtx = createContext()
 
@@ -7,27 +8,33 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  const refreshUser = async (options = {}) => {
+    const { data } = await api.get('/auth/me', options)
+    setUser(data)
+    return data
+  }
+
   // Se llama al montar
   useEffect(() => {
+    const controller = new AbortController()
     console.log('[Auth] init -> GET /auth/me')
-    api.get('/auth/me')
-      .then(res => {
-        console.log('[Auth] /auth/me OK', res.data)
-        setUser(res.data)
-      })
+    refreshUser({ signal: controller.signal })
       .catch(err => {
         console.log('[Auth] /auth/me FAIL', err?.response?.status)
-        setUser(null)
       })
       .finally(() => setLoading(false))
+    return () => controller.abort()
   }, [])
+
+  useEffect(() => {
+    if (!user) return
+    initPushNotifications()
+  }, [user])
 
   const login = async (email, password) => {
     console.log('[Auth] POST /auth/login', email)
     const { data } = await api.post('/auth/login', { email, password })
-    // confirma con /auth/me para poblar user desde cookie
-    const me = await api.get('/auth/me')
-    setUser(me.data)
+    await refreshUser()
     return data.user
   }
 
@@ -37,7 +44,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthCtx.Provider value={{ user, loading, login, logout }}>
+    <AuthCtx.Provider value={{ user, loading, login, logout, refreshUser }}>
       {children}
     </AuthCtx.Provider>
   )

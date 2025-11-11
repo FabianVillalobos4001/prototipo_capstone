@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../features/auth/AuthContext";
 import api from "../api/axios";
 
-/* Flecha simple sin librerías */
+/* Flecha simple sin librerias */
 function Chevron({ rotated }) {
   return (
     <span className={`inline-block transition-transform ${rotated ? "rotate-180" : ""}`} aria-hidden="true">
@@ -21,7 +21,7 @@ function Avatar({ name = "Usuario", src }) {
   );
 }
 
-/* Controles de paginación reutilizables */
+/* Controles de paginacion reutilizables */
 function Pager({ page, totalPages, onChange }) {
   if (totalPages <= 1) return null;
   const pages = [];
@@ -59,7 +59,7 @@ function Pager({ page, totalPages, onChange }) {
 }
 
 export default function Profile() {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
 
   const [profile, setProfile] = useState(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
@@ -74,6 +74,15 @@ export default function Profile() {
   const [history, setHistory] = useState({ items: [], total: 0, page: 1, totalPages: 1 });
   const [historyPage, setHistoryPage] = useState(1);
   const [openHistory, setOpenHistory] = useState(true);
+  const [contactForm, setContactForm] = useState({
+    phone: "",
+    contactMethod: "phone",
+    chatHandle: "",
+    contactNote: "",
+    shareContact: false,
+  });
+  const [contactSaving, setContactSaving] = useState(false);
+  const [contactFeedback, setContactFeedback] = useState(null);
 
   // Perfil real (/api/auth/me) usando cookie JWT
   useEffect(() => {
@@ -130,6 +139,17 @@ export default function Profile() {
     return () => controller.abort();
   }, [historyPage]);
 
+  useEffect(() => {
+    if (!profile) return;
+    setContactForm({
+      phone: profile.phone || "",
+      contactMethod: profile.carpoolContactMethod || "phone",
+      chatHandle: profile.carpoolChatHandle || "",
+      contactNote: profile.carpoolContactNote || "",
+      shareContact: Boolean(profile.carpoolContactEnabled),
+    });
+  }, [profile]);
+
   if (!user) return null;
 
   if (loadingProfile) {
@@ -151,6 +171,55 @@ export default function Profile() {
   const email = profile?.email || user?.email || "";
   const avatarUrl = profile?.fotoUrl || profile?.avatarUrl || user?.avatarUrl || "";
 
+  const updateContactForm = (field, value) => {
+    setContactForm((prev) => ({ ...prev, [field]: value }));
+    setContactFeedback(null);
+  };
+
+  const handleContactSubmit = async (event) => {
+    event.preventDefault();
+    const trimmedPhone = (contactForm.phone || "").trim();
+    const trimmedChat = (contactForm.chatHandle || "").trim();
+    const trimmedNote = (contactForm.contactNote || "").trim();
+    const needsValue = contactForm.contactMethod === "phone" ? trimmedPhone : trimmedChat;
+    if (contactForm.shareContact && needsValue.length === 0) {
+      setContactFeedback({ type: "error", message: "Agrega un numero o chat antes de compartirlo." });
+      return;
+    }
+    setContactSaving(true);
+    setContactFeedback(null);
+    try {
+      const { data } = await api.patch("/auth/contact", {
+        phone: trimmedPhone,
+        chatHandle: trimmedChat,
+        contactNote: trimmedNote,
+        contactMethod: contactForm.contactMethod,
+        shareContact: contactForm.shareContact,
+      });
+      setProfile((prev) => ({ ...prev, ...data }));
+      setContactForm({
+        phone: data.phone || "",
+        contactMethod: data.carpoolContactMethod || "phone",
+        chatHandle: data.carpoolChatHandle || "",
+        contactNote: data.carpoolContactNote || "",
+        shareContact: Boolean(data.carpoolContactEnabled),
+      });
+      if (refreshUser) {
+        try {
+          await refreshUser();
+        } catch {
+          // ignore
+        }
+      }
+      setContactFeedback({ type: "success", message: "Preferencias de contacto guardadas." });
+    } catch (error) {
+      const msg = error?.response?.data?.error || "No se pudo guardar el contacto.";
+      setContactFeedback({ type: "error", message: msg });
+    } finally {
+      setContactSaving(false);
+    }
+  };
+
   return (
     <main className="min-h-screen flex flex-col items-center px-4 py-8">
       <div className="w-full max-w-5xl flex flex-col items-center gap-8">
@@ -163,9 +232,112 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* Dos columnas: planned e históricos, ahora desplegables */}
+        {/* Contacto para viajes compartidos */}
+        <section className="w-full border rounded-xl shadow-sm p-4 space-y-4">
+          <div>
+            <h3 className="text-lg font-semibold">Contacto para viajes compartidos</h3>
+            <p className="text-sm text-gray-600">
+              Define si prefieres coordinar por telefono o chat cuando te unas a un grupo de match.
+            </p>
+          </div>
+          <form className="space-y-4" onSubmit={handleContactSubmit}>
+            <div>
+              <p className="text-sm font-medium">Prefiero coordinar por</p>
+              <div className="mt-2 flex flex-wrap gap-3">
+                <label
+                  className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm cursor-pointer ${contactForm.contactMethod === "phone" ? "bg-black text-white border-black" : ""}`}
+                >
+                  <input
+                    type="radio"
+                    name="contactMethod"
+                    value="phone"
+                    checked={contactForm.contactMethod === "phone"}
+                    onChange={() => updateContactForm("contactMethod", "phone")}
+                    className="hidden"
+                  />
+                  Telefono
+                </label>
+                <label
+                  className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm cursor-pointer ${contactForm.contactMethod === "chat" ? "bg-black text-white border-black" : ""}`}
+                >
+                  <input
+                    type="radio"
+                    name="contactMethod"
+                    value="chat"
+                    checked={contactForm.contactMethod === "chat"}
+                    onChange={() => updateContactForm("contactMethod", "chat")}
+                    className="hidden"
+                  />
+                  Chat / enlace
+                </label>
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="text-sm font-medium space-y-1">
+                Telefono
+                <input
+                  type="tel"
+                  value={contactForm.phone}
+                  onChange={(e) => updateContactForm("phone", e.target.value)}
+                  className="w-full rounded border px-3 py-2 text-sm"
+                  placeholder="+56 9 1234 5678"
+                  disabled={contactForm.contactMethod !== "phone"}
+                />
+              </label>
+              <label className="text-sm font-medium space-y-1">
+                Chat o enlace (Teams, WhatsApp, etc.)
+                <input
+                  type="text"
+                  value={contactForm.chatHandle}
+                  onChange={(e) => updateContactForm("chatHandle", e.target.value)}
+                  className="w-full rounded border px-3 py-2 text-sm"
+                  placeholder="Ej: @usuario o https://chat"
+                  disabled={contactForm.contactMethod !== "chat"}
+                />
+              </label>
+            </div>
+
+            <label className="text-sm font-medium space-y-1">
+              Nota para tu equipo (opcional)
+              <textarea
+                rows={3}
+                value={contactForm.contactNote}
+                onChange={(e) => updateContactForm("contactNote", e.target.value)}
+                className="w-full rounded border px-3 py-2 text-sm resize-none"
+                placeholder="Ej: Disponible despues de las 7:30 o prefiero mensajes."
+              />
+            </label>
+
+            <label className="flex items-start gap-3 text-sm">
+              <input
+                type="checkbox"
+                checked={contactForm.shareContact}
+                onChange={(e) => updateContactForm("shareContact", e.target.checked)}
+                className="mt-1"
+              />
+              Compartir este dato automaticamente con los companeros del grupo cada vez que me una a un viaje.
+            </label>
+
+            {contactFeedback && (
+              <p className={`text-sm ${contactFeedback.type === "success" ? "text-emerald-600" : "text-red-600"}`}>
+                {contactFeedback.message}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              className="w-full md:w-auto px-5 py-2 rounded-lg bg-black text-white text-sm font-medium disabled:opacity-60"
+              disabled={contactSaving}
+            >
+              {contactSaving ? "Guardando..." : "Guardar preferencia"}
+            </button>
+          </form>
+        </section>
+
+        {/* Dos columnas: planned e historicos, ahora desplegables */}
         <div className="flex flex-col gap-6 w-full">
-          {/* Próximos viajes (desplegable) */}
+          {/* Proximos viajes (desplegable) */}
           <section className="border rounded-xl shadow-sm">
             <button
               type="button"
@@ -173,7 +345,7 @@ export default function Profile() {
               className="w-full flex items-center justify-between px-4 py-3"
               aria-expanded={openPlanned}
             >
-              <h3 className="text-lg font-semibold">Próximos viajes</h3>
+              <h3 className="text-lg font-semibold">Proximos viajes</h3>
               <Chevron rotated={openPlanned} />
             </button>
 
@@ -203,7 +375,7 @@ export default function Profile() {
             )}
           </section>
 
-          {/* Viajes históricos (desplegable) */}
+          {/* Viajes historicos (desplegable) */}
           <section className="border rounded-xl shadow-sm">
             <button
               type="button"
@@ -211,7 +383,7 @@ export default function Profile() {
               className="w-full flex items-center justify-between px-4 py-3"
               aria-expanded={openHistory}
             >
-              <h3 className="text-lg font-semibold">Viajes históricos</h3>
+              <h3 className="text-lg font-semibold">Viajes historicos</h3>
               <Chevron rotated={openHistory} />
             </button>
 
@@ -246,7 +418,7 @@ export default function Profile() {
           onClick={logout}
           className="mt-6 px-6 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium transition"
         >
-          Cerrar sesión
+          Cerrar sesion
         </button>
       </div>
     </main>

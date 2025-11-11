@@ -5,6 +5,7 @@ import Group from '../models/Group.js'
 import User from '../models/User.js'
 import { requireAuth } from '../middleware/requireAuth.js'
 import { buildRouteZone } from '../utils/zones.js'
+import { notifyMatchEvent } from '../services/push.js'
 
 const r = Router()
 
@@ -106,6 +107,7 @@ r.post('/join', requireAuth, async (req, res) => {
       myTrip.status     = 'matched'
       await otherTrip.save()
       await myTrip.save()
+      notifyMatchEvent({ group, actorId: req.auth.id }).catch(() => {})
       return res.json({ ok: true, groupId: group._id })
     }
 
@@ -129,6 +131,7 @@ r.post('/join', requireAuth, async (req, res) => {
       await otherTrip.save()
     }
 
+    notifyMatchEvent({ group, actorId: req.auth.id }).catch(() => {})
     res.json({ ok: true, groupId: group._id })
   } catch (e) {
     res.status(500).json({ error: 'No se pudo unir al grupo' })
@@ -145,11 +148,17 @@ r.get('/group/:id', requireAuth, async (req, res) => {
       ? await Trip.find({ _id: { $in: tripIds } }).lean()
       : []
     const tripMap = new Map(trips.map((t) => [String(t._id), t]))
+    const userIds = g.members.map((m) => m.userId).filter(Boolean)
+    const users = userIds.length
+      ? await User.find({ _id: { $in: userIds } }).lean()
+      : []
+    const userMap = new Map(users.map((u) => [String(u._id), u]))
 
     const members = g.members.map(m => {
       const trip = tripMap.get(String(m.tripId)) || null
       const origin = trip?.origin || null
       const destination = trip?.destination || null
+       const user = userMap.get(String(m.userId)) || null
       return ({
         id: m.userId,
         tripId: m.tripId,
@@ -157,6 +166,7 @@ r.get('/group/:id', requireAuth, async (req, res) => {
         initials: (m.name || 'U').split(' ').map(s=>s[0]).slice(0,2).join('').toUpperCase(),
         origin,
         destination,
+        contact: buildContact(user),
       })
     })
 
@@ -203,3 +213,20 @@ r.get('/group/:id', requireAuth, async (req, res) => {
 })
 
 export default r
+
+function buildContact(user) {
+  if (!user || !user.carpoolContactEnabled) return null
+  const method = user.carpoolContactMethod === 'chat' ? 'chat' : 'phone'
+  const phone = typeof user.phone === 'string' ? user.phone : ''
+  const chat = typeof user.carpoolChatHandle === 'string' ? user.carpoolChatHandle : ''
+  const note = typeof user.carpoolContactNote === 'string' ? user.carpoolContactNote : ''
+  if (method === 'phone' && !phone) return null
+  if (method === 'chat' && !chat) return null
+  return {
+    method,
+    value: method === 'phone' ? phone : chat,
+    phone: phone || null,
+    chatHandle: chat || null,
+    note: note || null,
+  }
+}

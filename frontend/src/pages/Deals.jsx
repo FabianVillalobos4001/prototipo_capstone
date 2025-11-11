@@ -1,8 +1,12 @@
 // src/pages/Deals.jsx
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import GoogleAddressAutocomplete from '../components/GoogleAddressAutocomplete'
 import MapPickerModal from '../components/MapPickerModal'
 import api from '../api/axios'
+
+const CACHE_KEY = 'quickComparisonCache'
+const CACHE_TTL_MS = 30 * 60 * 1000 // 30 minutos
+const MAX_CACHE_OPTIONS = 20
 
 export default function Deals() {
   const [origin, setOrigin] = useState(null)       // {address, lat, lng, placeId}
@@ -13,16 +17,48 @@ export default function Deals() {
   const [err, setErr] = useState('')
   const [notice, setNotice] = useState('')
   const [options, setOptions] = useState([])
+  const cacheReadyRef = useRef(false)
+  const skipResetRef = useRef(false)
 
   const openMapFor = (m) => { setMode(m); setOpen(true) }
 
+  // Rehidrata el ultimo estado si sigue fresco
   useEffect(() => {
+    if (typeof window === 'undefined') {
+      cacheReadyRef.current = true
+      return
+    }
+    const cached = readQuickCache()
+    if (cached) {
+      skipResetRef.current = true
+      if (cached.origin) setOrigin(cached.origin)
+      if (cached.destination) setDestination(cached.destination)
+      if (Array.isArray(cached.options) && cached.options.length) {
+        setOptions(cached.options)
+      }
+    }
+    cacheReadyRef.current = true
+  }, [])
+
+  // Si el usuario cambia origen/destino, limpia resultados
+  useEffect(() => {
+    if (!cacheReadyRef.current) return
+    if (skipResetRef.current) {
+      skipResetRef.current = false
+      return
+    }
     setOptions([])
     setErr('')
     setNotice('')
   }, [origin, destination])
 
-  // --- Botón "Buscar opciones" (consulta generales + Transvip) ---
+  // Persiste entradas para que no se pierdan al navegar
+  useEffect(() => {
+    if (!cacheReadyRef.current) return
+    persistQuickCache({ origin, destination, options })
+  }, [origin, destination, options])
+
+  // --- Boton "Buscar opciones" (consulta generales + Transvip) ---
   const search = async () => {
     setErr('')
     setNotice('')
@@ -35,7 +71,7 @@ export default function Deals() {
       }
       const airportLike = looksLikeAirport(destination?.address)
       if (!airportLike) {
-        setNotice('Aviso: el destino no parece aeropuerto; algunas tarifas (Transvip) podrían no aplicar')
+        setNotice('Aviso: el destino no parece aeropuerto; tarifas de Transvip pueden no estar disponibles.')
       }
 
       setLoading(true)
@@ -71,19 +107,21 @@ export default function Deals() {
         } else {
           const data = transvipRes.value?.data
           if (data?.ok) {
-          const mapped = (data.options || []).map((o) => ({
-            id: `transvip-${o.id || o.name}`,
-            name: `Transvip · ${o.name}`,
-            price: o.price,
-            priceText: o.price_formatted,
-            etaMin: o.etaSec ? Math.round(o.etaSec / 60) : null,
-            link: o.link || 'https://www.transvip.cl/',
-          }))
-          combined.push(...mapped)
+            const mapped = (data.options || []).map((o) => ({
+              id: `transvip-${o.id || o.name}`,
+              name: `Transvip - ${o.name}`,
+              price: o.price,
+              priceText: o.price_formatted,
+              etaMin: o.etaSec ? Math.round(o.etaSec / 60) : null,
+              link: o.link || 'https://www.transvip.cl/',
+              provider: 'transvip',
+              currency: 'CLP',
+            }))
+            combined.push(...mapped)
           } else if (!airportLike) {
-            setNotice((prev) => prev || 'Transvip no devolvió precios para este destino')
+            setNotice((prev) => prev || 'Transvip no devolvio precios para este destino')
           } else {
-            setErr((prev) => prev || 'Transvip no devolvió precios')
+            setErr((prev) => prev || 'Transvip no devolvio precios')
           }
         }
       } else if (transvipRes?.status === 'rejected') {
@@ -92,6 +130,7 @@ export default function Deals() {
 
       combined.sort((a, b) => (a.price ?? Number.POSITIVE_INFINITY) - (b.price ?? Number.POSITIVE_INFINITY))
       setOptions(combined)
+      persistQuickCache({ origin, destination, options: combined })
     } catch (e) {
       setErr((prev) => prev || e?.response?.data?.error || 'No se pudieron obtener opciones')
     } finally {
@@ -99,9 +138,22 @@ export default function Deals() {
     }
   }
 
+  const handleOptionOpen = (option) => {
+    if (!option?.link) return
+    if (!origin || !destination) return
+    api.post('/quick/selections', {
+      origin,
+      destination,
+      options: options.slice(0, 50),
+      selectedOption: option,
+    }).catch((error) => {
+      console.warn('No se pudo registrar la seleccion de tarifa', error?.response?.data?.error || error?.message)
+    })
+  }
+
   return (
     <main className="p-4 max-w-md mx-auto grid gap-4">
-      <h1 className="text-xl font-bold">Viaje rápido</h1>
+      <h1 className="text-xl font-bold">Comparar tarifas</h1>
       {err && <p className="text-red-600 text-sm">{err}</p>}
       {notice && <p className="text-amber-600 text-sm">{notice}</p>}
 
@@ -123,7 +175,7 @@ export default function Deals() {
             onClick={() => openMapFor('origin')}
             className="h-10 px-3 rounded bg-neutral-900 text-white text-sm"
           >
-            🗺️ Mapa
+            Abrir mapa
           </button>
         </div>
         {origin?.address && <p className="text-xs text-gray-500">Seleccionado: {origin.address}</p>}
@@ -137,7 +189,7 @@ export default function Deals() {
               label="Destino"
               value={destination}
               onChange={setDestination}
-              types={['establishment']} // mejor para “Aeropuerto…”, “Planta…”
+              types={['establishment']} // mejor para aeropuertos o lugares especificos
               country="cl"
               placeholder="Ej: Aeropuerto de Santiago"
               bounds={{ south:-33.7, west:-70.9, north:-33.2, east:-70.4 }} // prioriza Stgo
@@ -148,7 +200,7 @@ export default function Deals() {
             onClick={() => openMapFor('destination')}
             className="h-10 px-3 rounded bg-neutral-900 text-white text-sm"
           >
-            🗺️ Mapa
+            Abrir mapa
           </button>
         </div>
         {destination?.address && <p className="text-xs text-gray-500">Seleccionado: {destination.address}</p>}
@@ -157,7 +209,7 @@ export default function Deals() {
       {/* Acciones */}
       <button onClick={search} disabled={loading}
         className="rounded bg-black text-white py-2">
-        {loading ? 'Buscando…' : 'Buscar opciones'}
+        {loading ? 'Buscando...' : 'Buscar opciones'}
       </button>
 
       {/* Resultados */}
@@ -167,12 +219,17 @@ export default function Deals() {
             <div>
               <p className="font-medium">{opt.name}</p>
               <p className="text-sm text-gray-600">
-                {opt.etaMin ? `ETA ${opt.etaMin} min · ` : ''}
-                {opt.priceText ? opt.priceText : (opt.price != null ? `CLP $${opt.price.toLocaleString('es-CL')}` : '—')}
+                {opt.etaMin ? `ETA ${opt.etaMin} min - ` : ''}
+                {opt.priceText ? opt.priceText : (opt.price != null ? `CLP $${opt.price.toLocaleString('es-CL')}` : '--')}
               </p>
             </div>
-            <a className="rounded bg-neutral-900 text-white px-3 py-2 text-sm"
-               href={opt.link} target="_blank" rel="noreferrer">
+            <a
+              className="rounded bg-neutral-900 text-white px-3 py-2 text-sm"
+              href={opt.link}
+              target="_blank"
+              rel="noreferrer noopener"
+              onClick={() => handleOptionOpen(opt)}
+            >
               Abrir
             </a>
           </li>
@@ -193,26 +250,55 @@ export default function Deals() {
 
 /* ===== Helpers ===== */
 function normalizeOption(opt = {}) {
-  const rawPrice = opt.price ?? null;
-  const price = typeof rawPrice === 'number' ? rawPrice : (rawPrice != null ? Number(rawPrice) : null);
-  const currency = opt.currency || 'CLP';
-  const name = opt.name || opt.provider || 'Opción';
-  const fallbackId = opt.id || `${opt.provider || 'op'}-${name}`.toLowerCase().replace(/\s+/g, '-');
+  const rawPrice = opt.price ?? null
+  const price = typeof rawPrice === 'number' ? rawPrice : (rawPrice != null ? Number(rawPrice) : null)
+  const currency = opt.currency || 'CLP'
+  const name = opt.name || opt.provider || 'Opcion'
+  const provider = opt.provider || name
+  const fallbackId = opt.id || `${opt.provider || 'op'}-${name}`.toLowerCase().replace(/\s+/g, '-')
 
   return {
     id: fallbackId,
     name,
+    provider,
     price,
     priceText: opt.priceText || (price != null ? `${currency} $${price.toLocaleString('es-CL')}` : undefined),
     etaMin: opt.etaMin ?? null,
     link: opt.link || '#',
-  };
+    currency,
+  }
 }
 
-function looksLikeAirport(addr='') {
-  const a = addr.toLowerCase()
-  return a.includes('aeropuerto') || a.includes('arturo merino') || a.includes('scl')
+function looksLikeAirport(addr = '') {
+  const a = addr.toLowerCase();
+
+  return (
+    // Aeropuerto Internacional Arturo Merino Benítez (Santiago)
+    a.includes('aeropuerto arturo merino') ||
+    a.includes('arturo merino benítez') ||
+    a.includes('armando cortínez') || // ← detecta la calle del aeropuerto
+    a.includes('pudahuel') && a.includes('1704') ||
+    a.includes('scl') ||
+    a.includes('aeropuerto santiago') ||
+
+    // Región de Valparaíso / Viña del Mar
+    a.includes('aeropuerto torquemada') ||
+    a.includes('aeródromo torquemada') ||
+    a.includes('aeródromo viña') ||
+    a.includes('aeródromo reñaca alto') ||
+    a.includes('aeródromo quintero') ||
+    a.includes('aeródromo santo domingo') ||
+    a.includes('aeródromo san antonio') ||
+
+    // Palabras genéricas
+    a.includes('aeropuerto') ||
+    a.includes('aerodromo') ||
+    a.includes('aeródromo') ||
+    a.includes('terminal aéreo') ||
+    a.includes('aviación')
+  );
 }
+
 
 function todayYYYYMMDD() {
   const d = new Date()
@@ -221,7 +307,7 @@ function todayYYYYMMDD() {
   return `${d.getFullYear()}-${mm}-${dd}`
 }
 
-// 1 hora después, redondeado hacia arriba a múltiplos de 5 minutos => "HH:MM"
+// 1 hora despues, redondeado hacia arriba a multiplos de 5 minutos => "HH:MM"
 function oneHourLaterRounded5() {
   const d = new Date()
   d.setMinutes(d.getMinutes() + 60)
@@ -236,4 +322,36 @@ function oneHourLaterRounded5() {
   const hh = String(d.getHours()).padStart(2,'0')
   const mm = String(d.getMinutes()).padStart(2,'0')
   return `${hh}:${mm}`
+}
+
+function readQuickCache() {
+  if (typeof window === 'undefined') return null
+  const raw = window.localStorage.getItem(CACHE_KEY)
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw)
+    if (!parsed?.timestamp) return null
+    if (Date.now() - parsed.timestamp > CACHE_TTL_MS) {
+      window.localStorage.removeItem(CACHE_KEY)
+      return null
+    }
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+function persistQuickCache({ origin, destination, options }) {
+  if (typeof window === 'undefined') return
+  try {
+    const payload = {
+      timestamp: Date.now(),
+      origin: origin || null,
+      destination: destination || null,
+      options: Array.isArray(options) ? options.slice(0, MAX_CACHE_OPTIONS) : [],
+    }
+    window.localStorage.setItem(CACHE_KEY, JSON.stringify(payload))
+  } catch (err) {
+    console.warn('No se pudo guardar el cache del comparador', err)
+  }
 }

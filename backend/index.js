@@ -13,6 +13,9 @@ import trips from './src/routes/trips.js';
 import match from './src/routes/match.js';
 import profile from './src/routes/profile.js';
 import transvip from './src/routes/transvip/air.js';
+import quick from './src/routes/quick.js';
+import chat from './src/routes/chat.js';
+import notifications from './src/routes/notifications.js';
 import receiptsRouter from './src/routes/receipts.js';
 
 // ⬇️ NUEVO: importa tu modelo de usuario (ajusta la ruta si difiere)
@@ -61,6 +64,9 @@ app.use('/api/trips', trips);
 app.use('/api/match', match);
 app.use('/api/profile', profile);
 app.use('/api/transvip', transvip);
+app.use('/api/quick', quick);
+app.use('/api/chat', chat);
+app.use('/api/notifications', notifications);
 
 // ⬇️ NUEVO: endpoint para traer el usuario actual
 // Para producción, cambias a JWT y lees req.user.email desde un middleware.

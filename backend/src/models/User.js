@@ -8,7 +8,17 @@ const UserSchema = new mongoose.Schema({
   zone: String,
   role: { type: String, default: "employee" },
   costCenter: String,
-  passwordHash: { type: String, required: true }, // 👈 añade esto
+  phone: { type: String, trim: true },
+  carpoolContactMethod: {
+    type: String,
+    enum: ["phone", "chat"],
+    default: "phone",
+  },
+  carpoolChatHandle: { type: String, trim: true },
+  carpoolContactEnabled: { type: Boolean, default: false },
+  carpoolContactNote: { type: String, trim: true },
+  passwordHash: { type: String, required: true }, // -> añade esto
 }, { timestamps: true });
 
 export default mongoose.model("User", UserSchema);
+

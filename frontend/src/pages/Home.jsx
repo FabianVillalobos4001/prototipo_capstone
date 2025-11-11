@@ -1,13 +1,20 @@
 // src/pages/Home.jsx
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import api from '../api/axios'
 import RouteMap from '../components/RouteMap'
+import { useAuth } from '../features/auth/AuthContext'
 
 export default function Home(){
+  const { user } = useAuth()
   const [myTrips, setMyTrips] = useState([])
   const [sugs, setSugs]     = useState([])
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
+  const contactEnabled = Boolean(user?.carpoolContactEnabled)
+  const contactMethod = user?.carpoolContactMethod || 'phone'
+  const contactValue = contactMethod === 'chat' ? user?.carpoolChatHandle : user?.phone
+  const contactNote = user?.carpoolContactNote
 
   // 1) Cargar mis viajes
   useEffect(() => {
@@ -18,7 +25,7 @@ export default function Home(){
       .finally(() => setLoading(false))
   }, [])
 
-  // 2) Detectar mi próximo viaje y pedir sugerencias
+  // 2) Detectar mi proximo viaje y pedir sugerencias
   const now = new Date()
   const futureTrips = myTrips.filter(t => new Date(t.arrivalTime) > now)
   const upcoming = [...futureTrips]
@@ -53,15 +60,42 @@ export default function Home(){
   return (
     <main className="p-4 pb-28 max-w-md mx-auto grid gap-4">
       <h1 className="text-xl font-bold">Mis viajes planificados</h1>
+
+      <section className="rounded-lg border p-4 bg-white shadow-sm text-sm w-full">
+        {contactEnabled && contactValue ? (
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-gray-600">Compartiras este contacto cuando te unas a un viaje compartido:</p>
+              <p className="text-base font-semibold text-black">
+                {contactMethod === 'chat' ? `Chat: ${contactValue}` : `Telefono: ${contactValue}`}
+              </p>
+              {contactNote && <p className="text-xs text-gray-500 mt-1">{contactNote}</p>}
+            </div>
+            <Link to="/profile" className="text-emerald-700 font-medium text-xs underline mt-2 sm:mt-0">
+              Editar en mi perfil
+            </Link>
+          </div>
+        ) : (
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <p className="text-gray-600">
+              Comparte un telefono o chat para que tus companeros puedan coordinar el viaje contigo.
+            </p>
+            <Link to="/profile" className="text-xs font-semibold text-emerald-700 underline">
+              Configurar contacto
+            </Link>
+          </div>
+        )}
+      </section>
+
       {err && <p className="text-red-600 text-sm">{err}</p>}
 
-      {/* Sugerencias de matching para el próximo viaje */}
+      {/* Sugerencias de matching para el proximo viaje */}
       {upcoming ? (
         <>
          <p className="text-sm text-gray-600">
-           Próximo viaje: {formatDateTime(upcoming.arrivalTime)}
-           {' · '}Destino: {upcoming.destination?.address}
-            {tripZoneLabel(upcoming) ? ` · Ruta: ${tripZoneLabel(upcoming)}` : ''}
+           Proximo viaje: {formatDateTime(upcoming.arrivalTime)}
+           {' - '}Destino: {upcoming.destination?.address}
+            {tripZoneLabel(upcoming) ? ` - Ruta: ${tripZoneLabel(upcoming)}` : ''}
          </p>
 
           {sugs.length > 0 && (
@@ -75,7 +109,7 @@ export default function Home(){
                         <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-neutral-900 text-white text-xs mr-2">
                           {s.user.initials}
                         </span>
-                        {s.user.name} · llega {formatDateTime(s.arrivalTime)}
+                        {s.user.name} - llega {formatDateTime(s.arrivalTime)}
                       </p>
                       <p className="text-xs text-gray-500 truncate max-w-[16rem]">
                         {s.destination?.address}
@@ -95,7 +129,7 @@ export default function Home(){
           )}
         </>
       ) : (
-        <p className="text-sm text-gray-500">No tienes viajes próximos. Planifica uno para ver coincidencias.</p>
+        <p className="text-sm text-gray-500">No tienes viajes proximos. Planifica uno para ver coincidencias.</p>
       )}
 
       {/* Lista de mis viajes */}
@@ -107,11 +141,11 @@ export default function Home(){
         )}
         {futureTrips.map(t => (
           <li key={t._id} className="rounded border p-3">
-           <p className="font-medium">{t.origin?.address || 'Origen'} · {t.destination?.address || 'Destino'}</p>
+           <p className="font-medium">{t.origin?.address || 'Origen'} - {t.destination?.address || 'Destino'}</p>
             <p className="text-sm text-gray-600">
               Llega: {formatDateTime(t.arrivalTime)}
-              {tripZoneLabel(t) ? ` · Ruta: ${tripZoneLabel(t)}` : ''}
-              {' · '}Estado: {t.status}
+              {tripZoneLabel(t) ? ` - Ruta: ${tripZoneLabel(t)}` : ''}
+              {' - '}Estado: {t.status}
             </p>
             {t.groupId && <GroupMini groupId={t.groupId} />}
           </li>
@@ -131,18 +165,18 @@ function tripZoneLabel(trip) {
   if (trip.zoneLabel) return trip.zoneLabel
   if (trip.originZoneLabel || trip.destinationZoneLabel) {
     const parts = [trip.originZoneLabel, trip.destinationZoneLabel].filter(Boolean)
-    return parts.length ? parts.join(' → ') : ''
+    return parts.length ? parts.join(' - ') : ''
   }
   return trip.zone || ''
 }
 
-function GroupMini({ groupId }){
+function GroupMini({ groupId }) {
   const [g, setG] = useState(null)
   const [showContacts, setShowContacts] = useState(false)
   const [showRoute, setShowRoute] = useState(false)
 
-  useEffect(()=> {
-    api.get(`/match/group/${groupId}`).then(({data}) => setG(data)).catch(()=>{})
+  useEffect(() => {
+    api.get(`/match/group/${groupId}`).then(({ data }) => setG(data)).catch(() => {})
   }, [groupId])
 
   if (!g) return null
@@ -153,30 +187,37 @@ function GroupMini({ groupId }){
 
   return (
     <div className="mt-2 rounded border p-2 space-y-3">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <p className="text-sm font-medium">Grupo de viaje</p>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          <Link
+            to={`/chat/${groupId}`}
+            className="text-xs px-3 py-1 rounded border bg-black text-white"
+          >
+            Chat
+          </Link>
           <button
             className="flex items-center gap-1 text-xs px-2 py-1 rounded border"
             onClick={() => setShowRoute((v) => !v)}
           >
-            {showRoute ? '▲' : '▼'} Ruta
+            {showRoute ? 'Ocultar ruta' : 'Ver ruta'}
           </button>
           <button
             className="text-xs underline"
-            onClick={()=> setShowContacts(v=>!v)}
+            onClick={() => setShowContacts((v) => !v)}
           >
             {showContacts ? 'Ocultar contactos' : 'Ver contactos'}
           </button>
         </div>
       </div>
+
       <div className="flex items-center gap-2 flex-wrap">
-        {members.map(m => (
+        {members.map((m) => (
           <span key={m.id} className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-neutral-900 text-white text-xs">
             {m.initials}
           </span>
         ))}
-        {Array.from({length: empty}).map((_,i)=>(
+        {Array.from({ length: empty }).map((_, i) => (
           <span key={i} className="inline-flex items-center justify-center w-8 h-8 rounded-full border text-neutral-500">+</span>
         ))}
       </div>
@@ -187,8 +228,8 @@ function GroupMini({ groupId }){
           <ol className="text-xs text-gray-600 space-y-1">
             {stops.map((stop, idx) => (
               <li key={`${stop.type}-${idx}`}>
-                {stop.type === 'dropoff' ? '🎯' : `Parada ${idx + 1}`}: {stop.label}
-                {stop.address ? ` · ${stop.address}` : ''}
+                {stop.type === 'dropoff' ? 'Destino' : `Parada ${idx + 1}`}: {stop.label}
+                {stop.address ? ` - ${stop.address}` : ''}
               </li>
             ))}
           </ol>
@@ -201,11 +242,21 @@ function GroupMini({ groupId }){
 
       {showContacts && (
         <div className="rounded border p-2 bg-neutral-50 text-sm">
-          <ul className="space-y-1">
-            {members.map(m => (
+          <ul className="space-y-2">
+            {members.map((m) => (
               <li key={m.id}>
-                <span className="font-medium">{m.name}</span>
-                {m.origin?.address ? ` · ${m.origin.address}` : ''}
+                <p>
+                  <span className="font-medium">{m.name}</span>
+                  {m.origin?.address ? ` - ${m.origin.address}` : ''}
+                </p>
+                {m.contact ? (
+                  <p className="text-xs text-gray-600">
+                    {m.contact.method === 'chat' ? `Chat: ${m.contact.value}` : `Telefono: ${m.contact.value}`}
+                    {m.contact.note ? ` - ${m.contact.note}` : ''}
+                  </p>
+                ) : (
+                  <p className="text-xs text-gray-400">No compartio contacto</p>
+                )}
               </li>
             ))}
           </ul>
@@ -214,3 +265,4 @@ function GroupMini({ groupId }){
     </div>
   )
 }
+
