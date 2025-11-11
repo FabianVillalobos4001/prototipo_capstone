@@ -11,14 +11,22 @@ async function run() {
   })
   console.log('✅ Conectado a', mongoose.connection.name)
 
-  const hash = await bcrypt.hash('123', 12)
+  const hash = await bcrypt.hash('123456', 12)
+
+  const testUsers = Array.from({ length: 10 }).map((_, idx) => {
+    const n = idx + 1
+    return {
+      email: `test.user${n}@gmail.com`,
+      name: `Test User ${n}`,
+      zone: 'demo',
+      role: 'employee',
+      costCenter: `TST${String(n).padStart(3, '0')}`,
+      passwordHash: hash,
+    }
+  })
 
   await User.deleteMany({})
-  await User.insertMany([
-    { email: 'juan.perez@metso.com',  name: 'Juan Pérez',  zone: 'norte',  role: 'employee', costCenter: 'CC001', passwordHash: hash },
-    { email: 'maria.gomez@metso.com', name: 'María Gómez', zone: 'centro', role: 'employee', costCenter: 'CC002', passwordHash: hash },
-    { email: 'admin@metso.com',       name: 'Administrador', zone: 'sur',  role: 'admin',    costCenter: 'CC999', passwordHash: hash },
-  ])
+  await User.insertMany(testUsers)
 
   console.log('✅ Usuarios listos con pass 123')
   await mongoose.disconnect()

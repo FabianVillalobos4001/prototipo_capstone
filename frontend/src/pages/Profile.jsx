@@ -83,6 +83,13 @@ export default function Profile() {
   });
   const [contactSaving, setContactSaving] = useState(false);
   const [contactFeedback, setContactFeedback] = useState(null);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordFeedback, setPasswordFeedback] = useState(null);
 
   // Perfil real (/api/auth/me) usando cookie JWT
   useEffect(() => {
@@ -220,6 +227,38 @@ export default function Profile() {
     }
   };
 
+  const updatePasswordForm = (field, value) => {
+    setPasswordForm((prev) => ({ ...prev, [field]: value }));
+    setPasswordFeedback(null);
+  };
+
+  const handlePasswordSubmit = async (event) => {
+    event.preventDefault();
+    if (!passwordForm.currentPassword || !passwordForm.newPassword) {
+      setPasswordFeedback({ type: "error", message: "Completa ambos campos." });
+      return;
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordFeedback({ type: "error", message: "Las contrasenas no coinciden." });
+      return;
+    }
+    setPasswordSaving(true);
+    setPasswordFeedback(null);
+    try {
+      await api.patch("/auth/password", {
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      });
+      setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+      setPasswordFeedback({ type: "success", message: "Contrasena actualizada." });
+    } catch (error) {
+      const msg = error?.response?.data?.error || "No se pudo actualizar la contrasena.";
+      setPasswordFeedback({ type: "error", message: msg });
+    } finally {
+      setPasswordSaving(false);
+    }
+  };
+
   return (
     <main className="min-h-screen flex flex-col items-center px-4 py-8">
       <div className="w-full max-w-5xl flex flex-col items-center gap-8">
@@ -331,6 +370,62 @@ export default function Profile() {
               disabled={contactSaving}
             >
               {contactSaving ? "Guardando..." : "Guardar preferencia"}
+            </button>
+          </form>
+        </section>
+
+        {/* Actualizar contrasena */}
+        <section className="w-full border rounded-xl shadow-sm p-4 space-y-4">
+          <div>
+            <h3 className="text-lg font-semibold">Actualizar contrasena</h3>
+            <p className="text-sm text-gray-600">
+              Cambia tu contrasena. Asegurate de recordar la nueva clave.
+            </p>
+          </div>
+          <form className="space-y-4" onSubmit={handlePasswordSubmit}>
+            <label className="text-sm font-medium space-y-1 w-full">
+              Contrasena actual
+              <input
+                type="password"
+                value={passwordForm.currentPassword}
+                onChange={(e) => updatePasswordForm("currentPassword", e.target.value)}
+                className="w-full rounded border px-3 py-2 text-sm"
+                placeholder="Tu contrasena actual"
+              />
+            </label>
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="text-sm font-medium space-y-1">
+                Nueva contrasena
+                <input
+                  type="password"
+                  value={passwordForm.newPassword}
+                  onChange={(e) => updatePasswordForm("newPassword", e.target.value)}
+                  className="w-full rounded border px-3 py-2 text-sm"
+                  placeholder="Minimo 6 caracteres"
+                />
+              </label>
+              <label className="text-sm font-medium space-y-1">
+                Confirmar nueva contrasena
+                <input
+                  type="password"
+                  value={passwordForm.confirmPassword}
+                  onChange={(e) => updatePasswordForm("confirmPassword", e.target.value)}
+                  className="w-full rounded border px-3 py-2 text-sm"
+                  placeholder="Repite la contrasena"
+                />
+              </label>
+            </div>
+            {passwordFeedback && (
+              <p className={`text-sm ${passwordFeedback.type === "success" ? "text-emerald-600" : "text-red-600"}`}>
+                {passwordFeedback.message}
+              </p>
+            )}
+            <button
+              type="submit"
+              className="w-full md:w-auto px-5 py-2 rounded-lg bg-black text-white text-sm font-medium disabled:opacity-60"
+              disabled={passwordSaving}
+            >
+              {passwordSaving ? "Actualizando..." : "Actualizar contrasena"}
             </button>
           </form>
         </section>

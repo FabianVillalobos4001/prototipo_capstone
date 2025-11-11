@@ -75,6 +75,28 @@ r.patch('/contact', requireAuth, async (req, res) => {
   }
 })
 
+r.patch('/password', requireAuth, async (req, res) => {
+  try {
+    const { currentPassword = '', newPassword = '' } = req.body || {}
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ error: 'La nueva contrasena debe tener al menos 6 caracteres' })
+    }
+
+    const user = await User.findById(req.auth.id)
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' })
+
+    const matches = await bcrypt.compare(String(currentPassword), user.passwordHash || '')
+    if (!matches) return res.status(401).json({ error: 'Contrasena actual incorrecta' })
+
+    user.passwordHash = await bcrypt.hash(String(newPassword), 12)
+    await user.save()
+    res.json({ ok: true })
+  } catch (err) {
+    console.error('PATCH /auth/password error', err)
+    res.status(500).json({ error: 'No se pudo actualizar la contrasena' })
+  }
+})
+
 r.post('/logout', (req, res) => {
   res.clearCookie(COOKIE_NAME, {
     path: '/',
