@@ -1,19 +1,15 @@
-const API = import.meta.env.VITE_API_URL || "/api"; // usaremos proxy Vite o env
+import api from "./axios"; // 👈 usa tu instancia axios con baseURL y cookies
 
-export async function getCurrentUser({ email } = {}) {
-  const headers = { "Content-Type": "application/json" };
-
-  // Si usas JWT en localStorage:
-  const token = localStorage.getItem("token");
-  if (token) headers.Authorization = `Bearer ${token}`;
-
-  // Si aún no tienes auth, pasa email por query (?email=)
-  const url = email ? `${API}/me?email=${encodeURIComponent(email)}` : `${API}/me`;
-
-  const res = await fetch(url, { headers, credentials: "include" });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || `HTTP ${res.status}`);
+// Trae el usuario autenticado usando cookie JWT
+export async function getCurrentUser() {
+  try {
+    const { data } = await api.get("/auth/me"); // -> /api/auth/me en tu backend
+    return data;
+  } catch (error) {
+    // Maneja error HTTP o de red
+    if (error.response?.data?.error) {
+      throw new Error(error.response.data.error);
+    }
+    throw new Error(`Error al obtener usuario: ${error.message}`);
   }
-  return res.json();
 }

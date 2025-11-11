@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../features/auth/AuthContext";
+import api from "../api/axios";
 
 /* Flecha simple sin librerías */
 function Chevron({ rotated }) {
@@ -67,16 +68,14 @@ export default function Profile() {
   // planned (paginado)
   const [planned, setPlanned] = useState({ items: [], total: 0, page: 1, totalPages: 1 });
   const [plannedPage, setPlannedPage] = useState(1);
-  const [openPlanned, setOpenPlanned] = useState(true);   // ⬅️ desplegable
+  const [openPlanned, setOpenPlanned] = useState(true);
 
   // completed (paginado)
   const [history, setHistory] = useState({ items: [], total: 0, page: 1, totalPages: 1 });
   const [historyPage, setHistoryPage] = useState(1);
-  const [openHistory, setOpenHistory] = useState(true);   // ⬅️ desplegable
+  const [openHistory, setOpenHistory] = useState(true);
 
-  const API = import.meta.env.VITE_API_URL || "/api";
-
-  // Perfil real (/api/me)
+  // Perfil real (/api/auth/me) usando cookie JWT
   useEffect(() => {
     if (!user) return;
     const controller = new AbortController();
@@ -84,59 +83,52 @@ export default function Profile() {
       setLoadingProfile(true);
       setErrorProfile(null);
       try {
-        const headers = { "Content-Type": "application/json" };
-        const token = localStorage.getItem("token");
-        if (token) headers.Authorization = `Bearer ${token}`;
-        const url = user.email ? `${API}/me?email=${encodeURIComponent(user.email)}` : `${API}/me`;
-        const res = await fetch(url, { headers, credentials: "include", signal: controller.signal });
-        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`);
-        setProfile(await res.json());
+        const { data } = await api.get("/auth/me", { signal: controller.signal });
+        setProfile(data);
       } catch (e) {
-        if (e.name !== "AbortError") setErrorProfile(e);
+        if (e.name !== "CanceledError" && e.name !== "AbortError") {
+          setErrorProfile(e);
+        }
       } finally {
         setLoadingProfile(false);
       }
     })();
     return () => controller.abort();
-  }, [user, API]);
+  }, [user]);
 
   // Carga planned
   useEffect(() => {
-    const headers = { "Content-Type": "application/json" };
-    const token = localStorage.getItem("token");
-    if (token) headers.Authorization = `Bearer ${token}`;
+    const controller = new AbortController();
     (async () => {
       try {
-        const res = await fetch(`${API}/trips/me?status=planned&limit=10&page=${plannedPage}`, {
-          headers, credentials: "include",
+        const { data } = await api.get("/trips/me", {
+          params: { status: "planned", limit: 10, page: plannedPage },
+          signal: controller.signal,
         });
-        if (!res.ok) throw new Error("Error cargando planned");
-        const data = await res.json();
         setPlanned(data);
       } catch {
         setPlanned({ items: [], total: 0, page: 1, totalPages: 1 });
       }
     })();
-  }, [API, plannedPage]);
+    return () => controller.abort();
+  }, [plannedPage]);
 
   // Carga completed
   useEffect(() => {
-    const headers = { "Content-Type": "application/json" };
-    const token = localStorage.getItem("token");
-    if (token) headers.Authorization = `Bearer ${token}`;
+    const controller = new AbortController();
     (async () => {
       try {
-        const res = await fetch(`${API}/trips/me?status=completed&limit=10&page=${historyPage}`, {
-          headers, credentials: "include",
+        const { data } = await api.get("/trips/me", {
+          params: { status: "completed", limit: 10, page: historyPage },
+          signal: controller.signal,
         });
-        if (!res.ok) throw new Error("Error cargando históricos");
-        const data = await res.json();
         setHistory(data);
       } catch {
         setHistory({ items: [], total: 0, page: 1, totalPages: 1 });
       }
     })();
-  }, [API, historyPage]);
+    return () => controller.abort();
+  }, [historyPage]);
 
   if (!user) return null;
 
